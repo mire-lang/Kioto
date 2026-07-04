@@ -4,6 +4,17 @@
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
 
+## 1.1.1 — 2026-07-04
+
+### Fixed
+
+- **net::event:** `accept_one` bounded to 50 retries instead of infinite loop,
+  returns -1 when exhausted.
+- **net::http:** Removed unnecessary variable aliases in `get`, `post`,
+  `build_get_request`, `build_post_request` — leftover use-after-move workarounds
+  no longer needed.
+- **net::http:** Fixed `if/if` patterns to `if/else` in `http_send` and `http_close`.
+
 ## 1.1.0 — 2026-07-03
 
 ### New modules

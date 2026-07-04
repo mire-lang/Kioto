@@ -8,10 +8,14 @@ extern fn pal_net_accept: (fd :i64) :i64 lib "c"
 pub fn accept_one: (port :i64) :i64 {
     set fd = pal_net_bind(port)
     if fd < 0 { return -1 }
-    while true {
+    set max_retries = 50 :i64
+    set retry = 0 :i64 mut
+    while retry < max_retries {
         set client = pal_net_accept(fd)
         if client >= 0 { return client }
+        set retry = retry + 1
     }
+    return -1
 }
 
 # Check if a socket has data ready to read. Returns 1 if readable.
