@@ -1,19 +1,19 @@
-# ws: WebSocket client (RFC 6455)
-#
-# Supports plain ws:// and secure wss:// (TLS) connections.
-# Scheme and port are auto-detected from the URL.
-# Frames are automatically masked per RFC 6455 section 5.3.
-#
-# Submodules:
-#   ws::send::text  — send a text frame
-#   ws::recv::all   — receive up to 64 KiB
-#
-# Usage:
-#   load kioto::ws
-#   set fd = ws::connect("wss://echo.websocket.org/")
-#   ws::send::text(fd, "ping")
-#   set msg = ws::recv::all(fd)
-#   ws::close(fd)
+// ws: WebSocket client (RFC 6455)
+//
+// Supports plain ws:// and secure wss:// (TLS) connections.
+// Scheme and port are auto-detected from the URL.
+// Frames are automatically masked per RFC 6455 section 5.3.
+//
+// Submodules:
+//   ws::send::text  — send a text frame
+//   ws::recv::all   — receive up to 64 KiB
+//
+// Usage:
+//   load kioto::ws
+//   set fd = ws::connect("wss://echo.websocket.org/")
+//   ws::send::text(fd, "ping")
+//   set msg = ws::recv::all(fd)
+//   ws::close(fd)
 module ws
 load kioto::ws::_pal
 load kioto::ws::send
@@ -61,9 +61,9 @@ fn extract_ws_path: (url :str) :str {
     return strings::substr(u slash strings::len(u))
 }
 
-# Connect to a WebSocket endpoint. Supports ws:// and wss://.
-# Returns fd (>= 0) on success, -1 on error.
-# Default ports: 80 (ws), 443 (wss). Custom ports: ws://host:9877/path
+// Connect to a WebSocket endpoint. Supports ws:// and wss://.
+// Returns fd (>= 0) on success, -1 on error.
+// Default ports: 80 (ws), 443 (wss). Custom ports: ws://host:9877/path
 pub fn connect: (url :&str) :i64 {
     set u1 = *url
     set host = extract_ws_host(u1)
@@ -85,12 +85,12 @@ pub fn connect: (url :&str) :i64 {
     return pal_ws_connect(h, p, pt)
 }
 
-# Receive one text frame. Returns "" on close frame or error.
+// Receive one text frame. Returns "" on close frame or error.
 pub fn recv: (fd :i64, max_bytes :i64) :str {
     return pal_ws_recv(fd, max_bytes)
 }
 
-# Send close frame (opcode 0x8) and close the connection.
+// Send close frame (opcode 0x8) and close the connection.
 pub fn close: (fd :i64) {
     pal_ws_close(fd)
 }
