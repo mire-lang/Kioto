@@ -13,7 +13,8 @@ pub fn parse: (raw :&vec[str]) :map[str str] {
     while i < len(*raw) {
         set arg = lists::get_str(raw i)
         if strings::startswith(arg "--") {
-            set flag = strings::substr(arg 2 strings::len(arg))
+            set an = strings::len(arg)
+            set flag = strings::substr(arg 2 an)
             set i += 1
             if i < len(*raw) {
                 set result[flag] = lists::get_str(raw i)

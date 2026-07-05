@@ -57,14 +57,18 @@ fn extract_body: (response :str) :str {
     set r = response
     set split_header = strings::index_of(r "\r\n\r\n")
     if split_header < 0 { return r }
-    return strings::substr(r split_header + 4 strings::len(r))
+    set rn = strings::len(r)
+    return strings::substr(r split_header + 4 rn)
 }
 
 fn extract_host: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set slash = strings::index_of(u "/") :i64 mut
     set colon = strings::index_of(u ":") :i64 mut
     if colon < 0 {
@@ -81,10 +85,14 @@ fn extract_port: (url :str) :i64 {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set colon = strings::index_of(u ":")
     if colon < 0 { return 0 :i64 }
-    set after = strings::substr(u colon + 1 strings::len(u))
+    set un2 = strings::len(u)
+    set after = strings::substr(u colon + 1 un2)
     set slash = strings::index_of(after "/") :i64 mut
     set port_str = after :str mut
     if slash >= 0 { set port_str = strings::substr(after 0 slash) }
@@ -95,10 +103,14 @@ fn extract_path: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set slash = strings::index_of(u "/")
     if slash < 0 { return "/" }
-    return strings::substr(u slash strings::len(u))
+    set un = strings::len(u)
+    return strings::substr(u slash un)
 }
 
 pub fn get: (url :&str) :str {
@@ -168,7 +180,8 @@ pub fn req_path: (raw :&str) :str {
     set s = *raw
     set sp1 = strings::index_of(s " ")
     if sp1 < 0 { return "/" }
-    set rest = strings::substr(s sp1 + 1 strings::len(s))
+    set sn = strings::len(s)
+    set rest = strings::substr(s sp1 + 1 sn)
     set sp2 = strings::index_of(rest " ") :i64 mut
     if sp2 < 0 { set sp2 = strings::index_of(rest "\r") }
     if sp2 < 0 { return rest }
@@ -182,7 +195,8 @@ pub fn req_header: (raw :&str, name :&str) :str {
     set pos = strings::index_of(s search)
     if pos < 0 { return "" }
     set start = pos + strings::len(search)
-    set rest = strings::substr(s start strings::len(s))
+    set sn = strings::len(s)
+    set rest = strings::substr(s start sn)
     set end = strings::index_of(rest "\r\n") :i64 mut
     if end < 0 { set end = strings::len(rest) }
     return strings::substr(rest 0 end)
@@ -192,14 +206,16 @@ pub fn req_body: (raw :&str) :str {
     set s = *raw
     set pos = strings::index_of(s "\r\n\r\n")
     if pos < 0 { return "" }
-    return strings::substr(s pos + 4 strings::len(s))
+    set sn = strings::len(s)
+    return strings::substr(s pos + 4 sn)
 }
 
 pub fn req_query: (raw :&str) :str {
     set p = req_path(raw)
     set qm = strings::index_of(p "?")
     if qm < 0 { return "" }
-    return strings::substr(p qm + 1 strings::len(p))
+    set pn = strings::len(p)
+    return strings::substr(p qm + 1 pn)
 }
 
 pub fn req_path_only: (raw :&str) :str {

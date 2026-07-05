@@ -375,7 +375,8 @@ pub fn keys: (input :&str, path :&str) :str {
             set key_end = i + strings::len(key_val) - 1
             set after = _skip_ws(s key_end + 1 obj_end)
             if after < obj_end && strings::substr(s after 1) == ":" {
-                set kname = strings::substr(key_val 1 strings::len(key_val) - 2)
+                set kvn = strings::len(key_val)
+                set kname = strings::substr(key_val 1 kvn - 2)
                 if result == "" { set result = kname } else { set result = result + "\n" + kname }
             }
             set i = key_end

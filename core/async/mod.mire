@@ -12,12 +12,18 @@ pub fn failed: (message :&str) :str { return "error:" + *message }
 pub fn pending: () :str { return "pending" }
 pub fn value: (task :&str, fallback :&str) :str {
     set t = *task
-    if strings::startswith(t "done:") { return strings::substr(t 5 strings::len(t)) }
+    if strings::startswith(t "done:") {
+        set tn = strings::len(t)
+        return strings::substr(t 5 tn)
+    }
     return *fallback
 }
 pub fn error_msg: (task :&str) :str {
     set t = *task
-    if strings::startswith(t "error:") { return strings::substr(t 6 strings::len(t)) }
+    if strings::startswith(t "error:") {
+        set tn = strings::len(t)
+        return strings::substr(t 6 tn)
+    }
     return ""
 }
 pub fn is_done: (task :&str) :bool { return strings::startswith(task "done:") }
@@ -32,7 +38,7 @@ pub fn wait: (pid :i64) :i64 { return pal_proc_wait(pid) }
 pub fn exists: (pid :i64) :i64 { return pal_proc_exists(pid) }
 
 pub fn channel: () :str {
-    set stamp = strings::trim(proc_run("date +%s"))
+    set stamp = strings::from_i64(time::unix_ms())
     return "/tmp/mire_chan_" + stamp
 }
 

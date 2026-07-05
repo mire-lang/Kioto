@@ -1,7 +1,10 @@
 [project]
 name = "kioto"
-version = "1.1.1"
+version = "1.1.2"
 entry = "mod.mire"
+
+[paths]
+tests = "tests"
 
 [exports]
 strings = "core/strings"

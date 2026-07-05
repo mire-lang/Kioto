@@ -24,7 +24,10 @@ fn extract_ws_host: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set slash = strings::index_of(u "/") :i64 mut
     set colon = strings::index_of(u ":") :i64 mut
     if colon < 0 {
@@ -41,10 +44,14 @@ fn extract_ws_port: (url :str) :i64 {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set colon = strings::index_of(u ":")
     if colon < 0 { return 0 :i64 }
-    set after = strings::substr(u colon + 1 strings::len(u))
+    set un2 = strings::len(u)
+    set after = strings::substr(u colon + 1 un2)
     set slash = strings::index_of(after "/") :i64 mut
     set port_str = after :str mut
     if slash >= 0 { set port_str = strings::substr(after 0 slash) }
@@ -55,10 +62,14 @@ fn extract_ws_path: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
     set pos = strings::index_of(u scheme)
-    if pos >= 0 { set u = strings::substr(u pos + 3 strings::len(u)) }
+    if pos >= 0 {
+        set un = strings::len(u)
+        set u = strings::substr(u pos + 3 un)
+    }
     set slash = strings::index_of(u "/")
     if slash < 0 { return "/" }
-    return strings::substr(u slash strings::len(u))
+    set un = strings::len(u)
+    return strings::substr(u slash un)
 }
 
 // Connect to a WebSocket endpoint. Supports ws:// and wss://.

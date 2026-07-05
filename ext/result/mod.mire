@@ -19,7 +19,8 @@ pub fn is_err: (r :&str) :bool {
 pub fn unwrap: (r :&str) :str {
     set v = *r
     if strings::startswith(v "ok:") {
-        return strings::substr(v 3 strings::len(v))
+        set vn = strings::len(v)
+        return strings::substr(v 3 vn)
     }
     return v
 }
@@ -27,7 +28,8 @@ pub fn unwrap: (r :&str) :str {
 pub fn unwrap_or: (r :&str, default :&str) :str {
     set v = *r
     if strings::startswith(v "ok:") {
-        return strings::substr(v 3 strings::len(v))
+        set vn = strings::len(v)
+        return strings::substr(v 3 vn)
     }
     return *default
 }
@@ -35,7 +37,8 @@ pub fn unwrap_or: (r :&str, default :&str) :str {
 pub fn unwrap_err: (r :&str) :str {
     set v = *r
     if strings::startswith(v "err:") {
-        return strings::substr(v 4 strings::len(v))
+        set vn = strings::len(v)
+        return strings::substr(v 4 vn)
     }
     return v
 }

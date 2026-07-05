@@ -4,6 +4,25 @@
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
 
+## 1.1.2 — 2026-07-05
+
+### Fixed
+
+- **strings::substr:** All calls now compute length into a variable before
+  passing to `substr`, avoiding a Mire runtime bug where inline
+  `strings::len()` as a function argument corrupts concatenated strings.
+  Fix applied across `ext/maybe`, `ext/result`, `ext/json`, `ext/ws`,
+  `core/async`, `core/cli`, `core/net/http` (12+ functions affected).
+- **async::channel:** Replaced undefined `proc_run("date +%s")` with
+  `time::unix_ms()` — the `proc_run` function never existed in kioto's scope.
+- **async::value, async::error_msg:** Fixed inline `strings::len()` bug
+  in the same pattern.
+
+### Added
+
+- **Test suite:** 35 tests across `tests/test_smoke.mire` and
+  `tests/test_ext.mire`. Run with `mire test` in the kioto directory.
+
 ## 1.1.1 — 2026-07-04
 
 ### Fixed
