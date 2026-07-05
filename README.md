@@ -63,4 +63,4 @@ pub fn main: () {
 
 ## Version
 
-**1.1.2** — See [CHANGELOG.md](CHANGELOG.md) for details.
+**1.1.3** — See [CHANGELOG.md](CHANGELOG.md) for details.
