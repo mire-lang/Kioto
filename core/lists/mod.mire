@@ -24,9 +24,7 @@ extern fn rt_lists_unique: (list :&vec[i64]) :vec[i64] lib "c"
 pub fn len: (list :&list) :i64 { return rt_lists_len(list) }
 pub fn push: (list, value) { rt_lists_push_ptr(list, value) }
 pub fn pop: (list) :i64 { return rt_lists_pop(list) }
-pub fn append: (list, value) { rt_lists_push_ptr(list, value) }
 pub fn remove: (list, index :i64) { rt_lists_remove(list, index) }
-pub fn delete: (list, index :i64) { rt_lists_remove(list, index) }
 pub fn clear: (list) { rt_lists_clear(list) }
 pub fn join: (list :&list, sep :&str) :str { return rt_lists_join_list(list, sep) }
 pub fn contains: (list :&vec[i64], value :i64) :bool { return rt_lists_contains_i64(list, value) }

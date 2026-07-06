@@ -11,7 +11,6 @@ extern fn pal_proc_wait: (pid :i64) :i64 lib "c"
 extern fn pal_proc_kill: (pid :i64) lib "c"
 extern fn pal_proc_exit: (status :i64) lib "c"
 extern fn pal_proc_exists: (pid :i64) :i64 lib "c"
-extern fn pal_proc_err: () :str lib "c"
 
 fn build_cmd: (cmd :str, args :vec[str]) :str {
     set full = cmd :str mut
@@ -54,7 +53,8 @@ pub fn stdin: () :str {
 pub fn exit: (code :i64) {
     use pal_proc_exit(code)
 }
-pub fn err: () :str { return pal_proc_err() }
+@[deprecated("no-op: pal_proc_err not implemented in runtime")]
+pub fn err: () :str { return "" }
 pub fn eprint: (msg :str) { pal_io_print_err(msg) }
 pub fn exec: (cmd :str, args :vec[str]) :i64 { return pal_proc_spawn(build_cmd(cmd args)) }
 pub fn exec_bg: (cmd :str, args :vec[str]) :i64 { return pal_proc_spawn(build_cmd(cmd args)) }

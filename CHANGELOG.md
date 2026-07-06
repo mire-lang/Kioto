@@ -4,7 +4,16 @@
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
 
-## 1.1.3 — 2026-07-06
+## 1.1.4 — 2026-07-06
+
+### Naming cleanup
+
+- **Removed duplicate functions**: `lists::append` (alias for `push`),
+  `lists::delete` (alias for `remove`), `strings::strip` (alias for `trim`).
+- **Removed broken extern**: `proc::err` no longer declares non-existent
+  `pal_proc_err`. Function now returns empty string with `@[deprecated]`.
+
+### 1.1.3 — 2026-07-06
 
 ### Core cleanup
 

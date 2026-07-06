@@ -19,7 +19,6 @@ extern fn rt_strings_repeat: (s :&str, n :i64) :str lib "c"
 
 pub fn upper: (s :&str) :str { return rt_strings_to_upper(s) }
 pub fn lower: (s :&str) :str { return rt_strings_to_lower(s) }
-pub fn strip: (s :&str) :str { return rt_strings_trim(s) }
 pub fn split: (s :&str, sep :&str) :vec[str] { return rt_strings_split(s, sep) }
 pub fn join: (parts :&vec[str], sep :&str) :str { return rt_strings_join_list(parts, sep) }
 pub fn replace: (s :&str, old :&str, new :&str) :str { return rt_strings_replace(s, old, new) }
