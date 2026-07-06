@@ -4,6 +4,13 @@
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
 
+## 1.1.5 — 2026-07-06
+
+### New features
+
+- **fs::walk**: Recursive directory traversal. Returns all file paths under a
+  directory, recursively including subdirectories. Skips `.` and `..` entries.
+
 ## 1.1.4 — 2026-07-06
 
 ### Naming cleanup
