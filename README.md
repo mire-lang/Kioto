@@ -34,8 +34,6 @@ It loads via `load kioto` and provides all user-facing APIs.
 | `maybe` | Option type | `some`, `none`, `is_some`, `is_none`, `unwrap`, `unwrap_or`, `map`, `and_then` |
 | `result` | Result type | `ok`, `err`, `is_ok`, `is_err`, `unwrap`, `unwrap_or`, `unwrap_err`, `map`, `map_err` |
 | `iter` | Iterator utilities | `range`, `count`, `nth`, `first`, `last`, `contains`, `index_of`, `is_empty` |
-| `sdl2` | SDL2 bindings | `init_video`, `create_window`, `create_renderer`, `fill_screen`, `delay`, `poll_event` |
-| `sdl3` | SDL3 bindings | `init_video`, `create_window`, `create_renderer`, `fill_screen`, `delay` |
 
 ## Getting started
 

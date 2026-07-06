@@ -51,7 +51,6 @@ pub fn write: (data :str) {
 pub fn stdin: () :str {
     return pal_io_readln()
 }
-pub fn on: (signal :str, handler) { }
 pub fn exit: (code :i64) {
     use pal_proc_exit(code)
 }

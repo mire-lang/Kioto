@@ -6,20 +6,18 @@
 
 ## 1.1.3 — 2026-07-06
 
-### Compiler fixes (avenys)
+### Core cleanup
 
-- **Float SRem constant folding**: Fixed `|_, _| 0.0` → `|x, y| x % y` — float
-  remainder now computes correctly during constant folding optimization.
-- **Module::Enum.Variant expression syntax**: Parser now correctly handles
-  `Module::Enum.Variant` as an enum variant path (not member access).
-- **Type/Skill/Enum visibility**: `ModuleRenamer` now preserves original visibility
-  instead of hardcoding `Visibility::Public` for all types.
+- **Removed stubs**: `gpu::available()` (hardcoded false), `lists::map/filter/fold`
+  (returning dummies), `proc::on()` (empty body).
+- **Namespace separators**: Fixed `basic.` → `basic::` and `strings.` → `strings::`
+  in `math/complex.mire` and `core/term/mod.mire`.
 
-### Stress test
+### Tests
 
-- Extended to **59 tests** across 5 modules (data, item, store, visibility, syntax).
-- New `visibility` module tests pub/private function visibility and cross-module access.
-- New `syntax` module tests control flow, operators, floats, and enum definitions.
+- **Extended test suite**: Tests split into modular files (`maybe.mire`, `result.mire`,
+  `iter.mire`, `json.mire`, `async.mire`, `fs.mire`, `env.mire`, `proc.mire`,
+  `math.mire`, `math_complex.mire`, `cli.mire`) for easier navigation.
 
 ## 1.1.2 — 2026-07-05
 

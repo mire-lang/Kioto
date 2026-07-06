@@ -42,6 +42,3 @@ pub fn reverse: (list :&vec[i64]) :vec[i64] { return rt_lists_reverse(list) }
 pub fn sort: (list) { rt_lists_sort(list) }
 pub fn unique: (list :&vec[i64]) :vec[i64] { return rt_lists_unique(list) }
 pub fn is_empty: (list :&list) :bool { return rt_lists_len(list) == 0 }
-pub fn map: (list, func) :vec[i64] { return [] }
-pub fn filter: (list, func) :vec[i64] { return [] }
-pub fn fold: (acc :i64, list, func) :i64 { return 0 }

@@ -16,21 +16,21 @@ pub fn one: () :Complex { return new(1.0, 0.0) }
 pub fn i: () :Complex { return new(0.0, 1.0) }
 
 pub fn conj: (z :Complex) :Complex { return new(z.re, 0.0 - z.im) }
-pub fn abs: (z :Complex) :f64 { return basic.hypot(z.re, z.im) }
-pub fn arg: (z :Complex) :f64 { return basic.atan2(z.im, z.re) }
+pub fn abs: (z :Complex) :f64 { return basic::hypot(z.re, z.im) }
+pub fn arg: (z :Complex) :f64 { return basic::atan2(z.im, z.re) }
 
 fn c_exp: (z :Complex) :Complex {
-    set e = basic.exp(z.re)
-    return new(e * basic.cos(z.im), e * basic.sin(z.im))
+    set e = basic::exp(z.re)
+    return new(e * basic::cos(z.im), e * basic::sin(z.im))
 }
 
 fn c_log: (z :Complex) :Complex {
-    return new(basic.log(basic.hypot(z.re, z.im)), arg(z))
+    return new(basic::log(basic::hypot(z.re, z.im)), arg(z))
 }
 
 fn c_sqrt: (z :Complex) :Complex {
-    set real_part = basic.sqrt((basic.hypot(z.re, z.im) + z.re) / 2.0)
-    set imag_part = basic.sqrt((basic.hypot(z.re, z.im) - z.re) / 2.0) mut
+    set real_part = basic::sqrt((basic::hypot(z.re, z.im) + z.re) / 2.0)
+    set imag_part = basic::sqrt((basic::hypot(z.re, z.im) - z.re) / 2.0) mut
     if z.im < 0.0 {
         set imag_part = 0.0 - imag_part
     }
@@ -77,14 +77,14 @@ pub fn pow: (z :Complex, exponent :Complex) :Complex {
 }
 
 pub fn from_polar: (radius :f64, angle :f64) :Complex {
-    return new(radius * basic.cos(angle), radius * basic.sin(angle))
+    return new(radius * basic::cos(angle), radius * basic::sin(angle))
 }
 
 pub fn to_str: (z :Complex) :str {
     set re = str(z.re)
     set im = z.im
     if im < 0.0 {
-        return "{re} - {str(0.0 - im)}i"
+        return re + " - " + str(0.0 - im) + "i"
     }
-    return "{re} + {str(im)}i"
+    return re + " + " + str(im) + "i"
 }

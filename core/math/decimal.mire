@@ -49,10 +49,12 @@ pub fn from_str: (text :str) :Decimal {
     set negative = false :bool mut
     if rt_strings_starts_with(clean "-") {
         set negative = true
-        set clean = rt_strings_substr(clean 1 rt_strings_len(clean) - 1)
+        set clen = rt_strings_len(clean)
+        set clean = rt_strings_substr(clean 1 clen - 1)
     }
     if rt_strings_starts_with(clean "+") {
-        set clean = rt_strings_substr(clean 1 rt_strings_len(clean) - 1)
+        set clen = rt_strings_len(clean)
+        set clean = rt_strings_substr(clean 1 clen - 1)
     }
 
     set dot = rt_strings_index_of(clean ".")
@@ -62,7 +64,8 @@ pub fn from_str: (text :str) :Decimal {
         return normalize((Decimal mantissa: whole_value, scale: 0))
     }
     set whole = rt_strings_substr(clean 0 dot)
-    set frac = rt_strings_substr(clean dot + 1 rt_strings_len(clean) - dot - 1)
+    set clen = rt_strings_len(clean)
+    set frac = rt_strings_substr(clean dot + 1 clen - dot - 1)
 
     set whole_value = segment_to_i64(whole)
     set s = rt_strings_len(frac)
@@ -91,8 +94,8 @@ pub fn to_str: (value :Decimal) :str {
     set whole = m / factor
     set frac = m % factor
     set frac_text = rt_strings_pad_left(str(frac), s, "0")
-    set result = "{str(whole)}.{frac_text}"
-    if negative { return "-{result}" }
+    set result = str(whole) + "." + frac_text
+    if negative { return "-" + result }
     return result
 }
 
@@ -107,7 +110,7 @@ pub fn neg: (value :Decimal) :Decimal {
 }
 
 pub fn add: (a :Decimal, b :Decimal) :Decimal {
-    set s = basic.max(a.scale, b.scale)
+    set s = basic::max(a.scale, b.scale)
     set left = a.mantissa * pow10(s - a.scale)
     set right = b.mantissa * pow10(s - b.scale)
     return normalize((Decimal mantissa: left + right, scale: s))
