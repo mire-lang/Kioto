@@ -4,6 +4,14 @@
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
 
+## 1.1.6 — 2026-07-07
+
+### Changed
+- **`thread::spawn` / `thread::join`**: `core/async/mod.mire` now uses the new
+  namespace syntax (`thread::spawn` / `thread::join`) instead of legacy flat
+  builtins (`thread_spawn` / `thread_join`). This aligns with Phase 1 builtin
+  modularization in Avenys 3.11.44+.
+
 ## 1.1.5 — 2026-07-06
 
 ### New features
