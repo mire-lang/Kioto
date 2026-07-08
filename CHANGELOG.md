@@ -9,7 +9,7 @@
 ### Changed
 - **`thread::spawn` / `thread::join`**: `core/async/mod.mire` now uses the new
   namespace syntax (`thread::spawn` / `thread::join`) instead of legacy flat
-  builtins (`thread_spawn` / `thread_join`). This aligns with Phase 1 builtin
+  builtins (`thread_spawn` / `thread_join`). This aligns with builtin
   modularization in Avenys 3.11.44+.
 
 ## 1.1.5 — 2026-07-06
