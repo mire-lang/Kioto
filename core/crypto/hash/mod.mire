@@ -1,0 +1,6 @@
+module hash
+load kioto::crypto::hash::sha256
+
+pub fn sha256: (msg :&str) :str {
+    return sha256::hash(msg)
+}

@@ -1,0 +1,2 @@
+module encode
+load kioto::crypto::encode::hex

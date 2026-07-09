@@ -1,0 +1,41 @@
+/// SHA-256 test vectors (from NIST / FIPS 180-4)
+/// Each test returns :bool — true = PASS, false = FAIL
+
+load kioto
+
+@[test]
+pub fn test_sha256_empty: () :bool {
+    set h = crypto::hash::sha256("")
+    return h == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
+
+@[test]
+pub fn test_sha256_abc: () :bool {
+    set h = crypto::hash::sha256("abc")
+    return h == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+}
+
+@[test]
+pub fn test_sha256_hello: () :bool {
+    set h = crypto::hash::sha256("hello world")
+    return h == "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+}
+
+@[test]
+pub fn test_sha256_empty_str: () :bool {
+    set h = crypto::hash::sha256("")
+    return strings::len(h) == 64
+}
+
+@[test]
+pub fn test_sha256_hex: () :bool {
+    // hash of "abc" should match known hex value
+    set h = crypto::hash::sha256("abc")
+    set expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    set matched = h == expected
+    if !matched {
+        log::info("SHA-256(\"abc\") got: " + h)
+        log::info("expected: " + expected)
+    }
+    return matched
+}

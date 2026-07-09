@@ -1,5 +1,169 @@
 # kioto changelog
 
+## 2.1.0 — 2026-07-09
+
+### New: crypto module
+
+Complete cryptographic module implemented in pure Mire:
+
+- **crypto::hash::sha256**: Full SHA-256 per FIPS 180-4, tested against NIST vectors.
+- **crypto::hash::sha512**: SHA-512 placeholder (awaiting implementation).
+- **crypto::encode::hex**: Hex encode (`vec[i64]` → `str`) and decode (`str` → `vec[i64]`).
+- **crypto::encode::base64**: Base64 encode/decode per RFC 4648 (pending).
+
+Infrastructure:
+- New `lists::set(list, index, value)` for in-place list mutation.
+- Added `rt_lists_set_i64` to C runtime (lists.c).
+- Added `rt_crypto_byte_at` to C runtime (crypto.c) for raw byte access.
+
+### Fixed
+
+- **Compiler**: Bitwise operators (`^ & | << >>`) were routing all ops to `MirOp::Add`;
+  added proper `MirOp::Shr/Xor/BitAnd/BitOr` variants with LLVM codegen, constant
+  folding, and optimizer support.
+- **lists::push**: Now returns `:list` instead of `:mu` to correctly handle realloc
+  pointer updates.
+
+### Tests
+
+- **bitwise_test.mire**: 6 tests covering AND/OR/XOR/SHL/SHR operators.
+- **crypto_test.mire**: 5 SHA-256 test vectors (empty, "abc", "hello world", length check, hex output).
+
+## 2.0.0 — 2026-07-08
+
+### Breaking: `_` → `::` naming convention
+
+Every function name containing an underscore has been refactored to use Mire's
+module path separator (`::`). This aligns all kioto APIs with the language's
+namespace resolution system and eliminates inconsistent naming.
+
+**Migration guide:** Replace `_` with `::` in the function path. For example,
+`strings::from_i64(x)` becomes `strings::from::i64(x)`.
+
+#### strings
+| Old | New |
+|-----|-----|
+| `strings::from_i64(x)` | `strings::from::i64(x)` |
+| `strings::to_i64(s)` | `strings::conv::i64(s)` |
+| `strings::index_of(s, sub)` | `strings::index(s, sub)` |
+| `strings::is_empty(s)` | `strings::check::empty(s)` |
+| `strings::replace_first(s, o, n)` | `strings::replace::first(s, o, n)` |
+| `strings::pad_left(s, w, p)` | `strings::pad::left(s, w, p)` |
+| `strings::pad_right(s, w, p)` | `strings::pad::right(s, w, p)` |
+
+#### dicts
+| Old | New |
+|-----|-----|
+| `dicts::is_empty(d)` | `dicts::check::empty(d)` |
+| `dicts::entries(d)` | `dicts::count(d)` (renamed for accuracy) |
+
+#### fs
+| Old | New |
+|-----|-----|
+| `fs::is_file(p)` | `fs::check::file(p)` |
+
+#### cpu
+| Old | New |
+|-----|-----|
+| `cpu::time_ns()` / `cpu::time_ms()` | `cpu::time::ns()` / `cpu::time::ms()` |
+| `cpu::elapsed_ms(m)` / `cpu::elapsed_ns(m)` | `cpu::elapsed::ms(m)` / `cpu::elapsed::ns(m)` |
+| `cpu::freq_mhz()` | `cpu::freq::mhz()` |
+| `cpu::cycles_est(m)` | `cpu::cycles::est(m)` |
+
+#### time
+| Old | New |
+|-----|-----|
+| `time::unix_ms()` / `time::unix_ns()` | `time::unix::ms()` / `time::unix::ns()` |
+| `time::elapsed_ns(s)` | `time::elapsed::ns(s)` |
+
+#### async
+| Old | New |
+|-----|-----|
+| `async::is_done(t)` | `async::check::done(t)` |
+| `async::is_error(t)` | `async::check::error(t)` |
+| `async::is_pending(t)` | `async::check::pending(t)` |
+| `async::error_msg(t)` | `async::error::msg(t)` |
+| `async::spawn_thread(f)` | `async::spawn::thread(f)` |
+| `async::join_thread(t)` | `async::join::thread(t)` |
+| `async::close_channel(c)` | `async::close::channel(c)` |
+
+#### lists
+| Old | New |
+|-----|-----|
+| `lists::index_of(l, v)` | `lists::index(l, v)` |
+| `lists::get_str(l, i)` | `lists::get::str(l, i)` |
+| `lists::is_empty(l)` | `lists::check::empty(l)` |
+
+#### net::event
+| Old | New |
+|-----|-----|
+| `net::event::accept_one(p)` | `net::event::accept::one(p)` |
+| `net::event::has_data(f)` | `net::event::has::data(f)` |
+
+#### net::http
+| Old | New |
+|-----|-----|
+| `http::server_mime(p)` | `http::server::mime(p)` |
+| `http::serve_file(f, p)` | `http::serve::file(f, p)` |
+| `http::req_method(r)` | `http::req::method(r)` |
+| `http::req_path(r)` | `http::req::path(r)` |
+| `http::req_header(r, n)` | `http::req::header(r, n)` |
+| `http::req_body(r)` | `http::req::body(r)` |
+| `http::req_query(r)` | `http::req::query(r)` |
+| `http::req_path_only(r)` | `http::req::path_only(r)` |
+| `http::resp_200(b, c)` | `http::resp::success(b, c)` |
+| `http::resp_404()` | `http::resp::not_found()` |
+| `http::resp_302(l)` | `http::resp::redirect(l)` |
+
+#### proc
+| Old | New |
+|-----|-----|
+| `proc::spawn_shell(c)` | `proc::spawn::shell(c)` |
+
+#### math
+| Old | New |
+|-----|-----|
+| `math::min_list(l)` | `math::minlist(l)` |
+| `math::max_list(l)` | `math::maxlist(l)` |
+| `math::range_between(s, e)` | `math::between(s, e)` |
+| `math::range_step(s, e, n)` | `math::step(s, e, n)` |
+
+#### stats (via `math::stats`)
+| Old | New |
+|-----|-----|
+| `stats::min_list(l)` | `stats::minlist(l)` |
+| `stats::max_list(l)` | `stats::maxlist(l)` |
+| `stats::range_between(s, e)` | `stats::between(s, e)` |
+| `stats::range_step(s, e, n)` | `stats::step(s, e, n)` |
+
+#### Decimal
+| Old | New |
+|-----|-----|
+| `decimal::from_int(v)` | `decimal::int(v)` |
+| `decimal::from_str(s)` | `decimal::parse(s)` |
+| `decimal::to_float(d)` | `decimal::float(d)` |
+| `decimal::to_str(d)` | `decimal::text(d)` |
+| `decimal::div_prec(a, b, p)` | `decimal::prec(a, b, p)` |
+
+#### Complex
+| Old | New |
+|-----|-----|
+| `complex::from_polar(r, a)` | `complex::polar(r, a)` |
+| `complex::to_str(z)` | `complex::text(z)` |
+
+#### iter
+| Old | New |
+|-----|-----|
+| `iter::is_empty(l)` | `iter::empty(l)` |
+| `iter::index_of(l, v)` | `iter::index(l, v)` |
+
+### Removed
+- **`strings::to_string`**: Use `strings::from::i64()` instead (identical behavior).
+- **`dicts::delete`**: Use `dicts::remove()` instead (identical behavior).
+- **`dicts::entries`**: Use `dicts::count()` instead (returns count, not key-value pairs).
+
+## 1.1.6 — 2026-07-07
+
 > **Re-versioned (2026-07-03):** Old 3.x tags mapped to semver:
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)

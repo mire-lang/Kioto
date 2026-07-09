@@ -22,4 +22,5 @@ load kioto::log
 load kioto::cli
 load kioto::json
 load kioto::ws
+load kioto::crypto
 

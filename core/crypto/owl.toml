@@ -1,0 +1,7 @@
+[project]
+name = "crypto"
+entry = "mod.mire"
+
+[exports]
+hash   = "hash/mod.mire"
+encode = "encode/mod.mire"

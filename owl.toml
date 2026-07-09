@@ -1,6 +1,6 @@
 [project]
 name = "kioto"
-version = "1.1.6"
+version = "2.1.0"
 entry = "code/mod.mire"
 
 [paths]
@@ -31,4 +31,5 @@ log     = "core/log"
 cli     = "core/cli"
 json    = "ext/json"
 ws      = "ext/ws"
+crypto  = "core/crypto"
 
