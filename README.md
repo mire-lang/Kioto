@@ -423,37 +423,44 @@ Hex and Base64 encoding.
 | `base64::encode(bytes)` | `str` | Encode bytes to Base64 string |
 | `base64::decode(s)` | `vec[i64]` | Decode Base64 string to bytes |
 
-```mire
-set encoded = crypto::encode::hex::encode([0xDE 0xAD 0xBE 0xEF] :vec[i64])
-# encoded == "deadbeef"
+### crypto::sign::ed25519
 
-set decoded = crypto::encode::hex::decode("deadbeef")
-# decoded == [222 173 190 239] :vec[i64]
+Ed25519 digital signatures via openssl (EdDSA, Curve25519, RFC 8032).
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `generate_sk()` | `str` | Generate secret key (PEM file path) |
+| `generate_pk(sk_path)` | `str` | Extract public key from secret key |
+| `sign(sk_path, msg)` | `str` | Sign message (returns hex signature) |
+| `verify(pk_path, msg, sig)` | `bool` | Verify signature against message |
+| `read_pem(path)` | `str` | Read PEM file contents |
+| `cleanup_keys(sk, pk)` | — | Delete temp key files |
+
+Keys are stored as PEM files. Signatures are hex-encoded strings.
+
+```mire
+set sk_path = crypto::sign::ed25519::generate_sk()
+set pk_path = crypto::sign::ed25519::generate_pk(sk_path)
+set sig = crypto::sign::ed25519::sign(sk_path, "message")
+set ok = crypto::sign::ed25519::verify(pk_path, "message", sig)
+crypto::sign::ed25519::cleanup_keys(sk_path, pk_path)
 ```
 
-### crypto::sign
+### crypto::random::secure
 
-Ed25519 digital signatures (EdDSA over Curve25519, RFC 8032).
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `ed25519::verify(pk, msg, sig)` | `bool` | Verify signature |
-| `ed25519::sign(sk, msg)` | `str` | Sign message (hex-encoded) |
-| `ed25519::generate()` | `map[str,str]` | Generate keypair `{"sk", "pk"}` |
-| `ed25519::seed::expand(seed)` | `map[str,str]` | Expand 32-byte seed into keypair |
-
-All keys and signatures are hex-encoded strings. Secret keys are 64 bytes
-(32B seed + 32B public), public keys are 32 bytes, signatures are 64 bytes.
-
-### crypto::random
-
-Cryptographically secure random number generation via `/dev/urandom`.
+CSPRNG via `/dev/urandom`.
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `secure::bytes(n)` | `vec[i64]` | Read `n` random bytes from `/dev/urandom` |
-| `secure::i64()` | `i64` | Random i64 value |
-| `secure::seed()` | `str` | 32-byte random hex seed for key generation |
+| `bytes(n)` | `vec[i64]` | Read `n` random bytes |
+| `seed(size)` | `str` | Random hex seed (2*size chars) |
+| `i64()` | `i64` | Random 64-bit signed integer |
+
+```mire
+set rand_bytes = crypto::random::secure::bytes(32)
+set rand_seed = crypto::random::secure::seed(32)
+set rand_i64 = crypto::random::secure::i64()
+```
 
 ---
 
