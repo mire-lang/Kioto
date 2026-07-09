@@ -58,7 +58,10 @@ pub fn hash: (msg :&str) :str {
         set t = 0 :i64 mut
         while t < 16 {
             set off = base + t * 4
-            set word = ((lists::get(bytes, off) & 0xFF) << 24) | ((lists::get(bytes, off + 1) & 0xFF) << 16) | ((lists::get(bytes, off + 2) & 0xFF) << 8) | (lists::get(bytes, off + 3) & 0xFF)
+            set word = ((lists::get(bytes, off) & 0xFF) << 24) |
+                       ((lists::get(bytes, off + 1) & 0xFF) << 16) |
+                       ((lists::get(bytes, off + 2) & 0xFF) << 8) |
+                       (lists::get(bytes, off + 3) & 0xFF)
             set w_lst = rt_lists_push_i64(w_lst, word)
             set t += 1
         }

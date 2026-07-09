@@ -154,8 +154,10 @@ pub fn test_hex_decode_deadbeef: () :bool {
     set bytes = crypto::encode::hex::decode("deadbeef")
     set n = lists::len(bytes)
     if n != 4 { return false }
-    set ok = lists::get(bytes, 0) == 0xDE && lists::get(bytes, 1) == 0xAD && lists::get(bytes, 2) == 0xBE && lists::get(bytes, 3) == 0xEF
-    return ok
+    return lists::get(bytes, 0) == 0xDE &&
+           lists::get(bytes, 1) == 0xAD &&
+           lists::get(bytes, 2) == 0xBE &&
+           lists::get(bytes, 3) == 0xEF
 }
 
 @[test]
