@@ -1,6 +1,11 @@
 module hash
 load kioto::crypto::hash::sha256
+load kioto::crypto::hash::sha512
 
 pub fn sha256: (msg :&str) :str {
     return sha256::hash(msg)
+}
+
+pub fn sha512: (msg :&str) :str {
+    return sha512::hash(msg)
 }

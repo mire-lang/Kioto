@@ -4,3 +4,4 @@ entry = "mod.mire"
 
 [exports]
 sha256 = "sha256.mire"
+sha512 = "sha512.mire"
