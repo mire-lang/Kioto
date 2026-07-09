@@ -47,17 +47,10 @@ pub fn read: () :str {
 pub fn write: (data :str) {
     pal_io_print(data)
 }
-pub fn stdin: () :str {
-    return pal_io_readln()
-}
 pub fn exit: (code :i64) {
     use pal_proc_exit(code)
 }
-@[deprecated("no-op: pal_proc_err not implemented in runtime")]
-pub fn err: () :str { return "" }
 pub fn eprint: (msg :str) { pal_io_print_err(msg) }
-pub fn exec: (cmd :str, args :vec[str]) :i64 { return pal_proc_spawn(build_cmd(cmd args)) }
-pub fn exec_bg: (cmd :str, args :vec[str]) :i64 { return pal_proc_spawn(build_cmd(cmd args)) }
 pub fn kill: (pid :i64) {
     use pal_proc_kill(pid)
 }

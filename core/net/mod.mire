@@ -25,10 +25,9 @@ pub fn connect: (host :&str, port :i64) :i64 {
 }
 
 // Send raw data on a TCP socket.
-pub fn send: (fd :i64, data :&str) :bool {
+pub fn send: (fd :i64, data :&str) :mu {
     set d = *data
     pal_net_send(fd, d)
-    return true
 }
 
 // Receive up to max_bytes from a TCP socket.

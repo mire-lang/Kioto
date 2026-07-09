@@ -35,7 +35,7 @@ pub fn is_pending: (task :&str) :bool {
 
 pub fn spawn: (cmd :str) :i64 { return pal_proc_spawn(cmd) }
 pub fn wait: (pid :i64) :i64 { return pal_proc_wait(pid) }
-pub fn exists: (pid :i64) :i64 { return pal_proc_exists(pid) }
+pub fn exists: (pid :i64) :bool { return pal_proc_exists(pid) != 0 }
 
 pub fn spawn_thread: (task) :i64 { return thread::spawn(task) }
 pub fn join_thread: (tid :i64) :i64 { return thread::join(tid) }
