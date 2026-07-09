@@ -1,5 +1,52 @@
 # kioto changelog
 
+## 2.2.0 — 2026-07-09
+
+### New: SHA-512
+
+SHA-512 hash implementation per FIPS 180-4:
+- 80 rounds, 128-byte blocks, 64-bit words
+- Tested against NIST vectors (empty string, "abc", 128-char length check)
+- Uses same internal structure as SHA-256 with 64-bit constants
+
+Implementation note: K constants (80 × 64-bit values) are built via
+`rt_lists_push_i64()` instead of a list literal. This works around a
+Mire compiler bug where `[large_i64, ...] :vec[i64]` list literals with
+3+ elements and values exceeding ~2^62 corrupt elements after index 0.
+SHA-256 is unaffected because its constants fit in 32 bits.
+
+### Fixed
+
+- **Ed25519**: real pid from `proc::run()` passed to `proc::wait()`, error
+  checking via `fs::exists+size`, verify uses exit code wrapper instead of
+  parsing stdout, `generate_sk/generate_pk` validate output files,
+  `cleanup_keys` uses `strings::len` (was bare `len`), `uid()` helper restored
+- **Base64**: `char_value` refactored from 74-line if-chain to 5-line
+  `strings::index`, full -1 sentinel validation for all v0-v3 with proper
+  pad-aware checking
+- **Hex**: `hex_val` returns -1 for invalid chars (was 0), `decode()` validates
+  hi/lo for -1 sentinel
+- **SHA-256**: uses `rt_lists_push_i64` for integer list operations
+  (was routing through `rt_lists_push_ptr` causing segfaults)
+
+### New APIs
+
+- `fs::read_bytes(path)` — binary-safe file read via `rt_read_bytes` C runtime
+  function. Returns managed string with correct byte length (no strlen).
+- `fs::write_bytes(path, data, len)` — writes exact byte count via
+  `pal_fs_write_bytes`
+- `rt_hex_to_file(path, hex)` — C function decodes hex string to raw bytes
+
+### Dependencies
+
+Crypto module now has zero external binary conversion dependencies.
+Only required system tools: `od` (coreutils, universal) and `openssl`.
+
+### Tests
+
+76/76 tests pass: SHA-256 (5), SHA-512 (3), Base64 (7), Hex (3), Ed25519 (2),
+CSPRNG (3), bitwise (6), integration (1).
+
 ## 2.1.0 — 2026-07-09
 
 ### New: crypto module (73/73 tests)

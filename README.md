@@ -1,6 +1,6 @@
 # kioto — Mire standard library
 
-Version **2.1.0** — [CHANGELOG](CHANGELOG.md)
+Version **2.2.0** — [CHANGELOG](CHANGELOG.md)
 
 Kioto is the core library for the Mire language ecosystem.
 Load the full library with `load kioto`, or load individual modules
@@ -397,13 +397,14 @@ Cryptographic primitives implemented in pure Mire.
 
 ### crypto::hash
 
-SHA-256 hashing per FIPS 180-4.
+SHA-256 and SHA-512 hashing per FIPS 180-4.
 
 | Function | Returns | Description |
 |----------|---------|-------------|
 | `sha256(msg)` | `str` | SHA-256 hex digest (64 lowercase hex chars) |
+| `sha512(msg)` | `str` | SHA-512 hex digest (128 lowercase hex chars) |
 
-SHA-256 is a complete pure-Mire implementation. Tested against NIST vectors
+Both are complete pure-Mire implementations. Tested against NIST vectors
 for empty string, "abc", "hello world", and multiblock messages.
 
 ```mire
@@ -644,4 +645,4 @@ pub fn main: () {
 
 ## Version
 
-**2.0.0** — See [CHANGELOG.md](CHANGELOG.md) for migration guide.
+**2.2.0** — See [CHANGELOG.md](CHANGELOG.md) for migration guide.
