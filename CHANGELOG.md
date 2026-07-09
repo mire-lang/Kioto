@@ -2,32 +2,43 @@
 
 ## 2.1.0 — 2026-07-09
 
-### New: crypto module
+### New: crypto module (73/73 tests)
 
-Complete cryptographic module implemented in pure Mire:
+Complete cryptographic module:
 
-- **crypto::hash::sha256**: Full SHA-256 per FIPS 180-4, tested against NIST vectors.
-- **crypto::hash::sha512**: SHA-512 placeholder (awaiting implementation).
-- **crypto::encode::hex**: Hex encode (`vec[i64]` → `str`) and decode (`str` → `vec[i64]`).
-- **crypto::encode::base64**: Base64 encode/decode per RFC 4648 (pending).
+- **crypto::hash::sha256**: Full SHA-256 per FIPS 180-4, tested against NIST vectors (empty, "abc", "hello world", multiblock, 1000-char).
+- **crypto::encode::hex**: Hex encode (`vec[i64]` → `str`) and decode (`str` → `vec[i64]`) with round-trip tests.
+- **crypto::encode::base64**: Base64 encode/decode per RFC 4648 with full test vector coverage.
+- **crypto::random::secure**: CSPRNG via `/dev/urandom` (bytes, seed, i64) using `od` (coreutils).
+- **crypto::sign::ed25519**: Ed25519 keygen/sign/verify via openssl CLI, with wrong-signature detection tests.
 
 Infrastructure:
-- New `lists::set(list, index, value)` for in-place list mutation.
+- New `lists::set(list, index, value)` for in-place list mutation (takes `&list`).
 - Added `rt_lists_set_i64` to C runtime (lists.c).
-- Added `rt_crypto_byte_at` to C runtime (crypto.c) for raw byte access.
+- Added `rt_crypto_byte_at` to C runtime (crypto.c) for raw byte access from managed strings.
 
 ### Fixed
 
-- **Compiler**: Bitwise operators (`^ & | << >>`) were routing all ops to `MirOp::Add`;
+- **Compiler (Avenys v3.12.3)**: Bitwise operators (`^ & | << >>`) were routing all ops to `MirOp::Add`;
   added proper `MirOp::Shr/Xor/BitAnd/BitOr` variants with LLVM codegen, constant
   folding, and optimizer support.
-- **lists::push**: Now returns `:list` instead of `:mu` to correctly handle realloc
-  pointer updates.
+- **Compiler (Avenys v3.12.4)**: Multi-line expression continuation (binary operators at end of line).
+- **lists::push**: Now returns `:list` instead of `:mu` to correctly handle realloc pointer updates.
+- **SHA-256**: Uses `rt_lists_push_i64` directly for integer list operations (was routing through `rt_lists_push_ptr` causing segfaults).
 
-### Tests
+### Dependencies
 
-- **bitwise_test.mire**: 6 tests covering AND/OR/XOR/SHL/SHR operators.
-- **crypto_test.mire**: 5 SHA-256 test vectors (empty, "abc", "hello world", length check, hex output).
+| Tool | Package | Purpose |
+|------|---------|---------|
+| `od` | coreutils (universal) | CSPRNG + binary→hex |
+| `openssl` | openssl | Ed25519 keygen/sign/verify |
+| `xxd` | vim-common | Ed25519 verify hex→binary |
+| `/dev/urandom` | kernel | CSPRNG entropy |
+
+### Tests (73/73 PASS)
+
+- **bitwise_test.mire**: 6 tests (AND/OR/XOR/SHL/SHR + chained).
+- **crypto_test.mire**: 19 tests — SHA-256 (5), Base64 (7), Hex (3), Ed25519 (2), CSPRNG (2).
 
 ## 2.0.0 — 2026-07-08
 

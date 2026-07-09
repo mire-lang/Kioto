@@ -397,15 +397,14 @@ Cryptographic primitives implemented in pure Mire.
 
 ### crypto::hash
 
-SHA-256 and SHA-512 hashing.
+SHA-256 hashing per FIPS 180-4.
 
 | Function | Returns | Description |
 |----------|---------|-------------|
 | `sha256(msg)` | `str` | SHA-256 hex digest (64 lowercase hex chars) |
-| `sha512(msg)` | `str` | SHA-512 hex digest (128 lowercase hex chars) |
 
-SHA-256 is a complete pure-Mire implementation conforming to FIPS 180-4.
-Tested against NIST vectors for empty string, "abc", and "hello world".
+SHA-256 is a complete pure-Mire implementation. Tested against NIST vectors
+for empty string, "abc", "hello world", and multiblock messages.
 
 ```mire
 set h = crypto::hash::sha256("abc")
