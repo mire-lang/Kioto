@@ -89,14 +89,7 @@ pub fn hash: (msg :&str) :str {
         set t = 0 :i64 mut
         while t < 16 {
             set off = base + t * 8
-            set word = ((lists::get(bytes, off) & 0xFF) << 56) |
-                       ((lists::get(bytes, off + 1) & 0xFF) << 48) |
-                       ((lists::get(bytes, off + 2) & 0xFF) << 40) |
-                       ((lists::get(bytes, off + 3) & 0xFF) << 32) |
-                       ((lists::get(bytes, off + 4) & 0xFF) << 24) |
-                       ((lists::get(bytes, off + 5) & 0xFF) << 16) |
-                       ((lists::get(bytes, off + 6) & 0xFF) << 8) |
-                       (lists::get(bytes, off + 7) & 0xFF)
+            set word = ((lists::get(bytes, off) & 0xFF) << 56) | ((lists::get(bytes, off + 1) & 0xFF) << 48) | ((lists::get(bytes, off + 2) & 0xFF) << 40) | ((lists::get(bytes, off + 3) & 0xFF) << 32) | ((lists::get(bytes, off + 4) & 0xFF) << 24) | ((lists::get(bytes, off + 5) & 0xFF) << 16) | ((lists::get(bytes, off + 6) & 0xFF) << 8) | (lists::get(bytes, off + 7) & 0xFF)
             set W = rt_lists_push_i64(W, word)
             set t += 1
         }
@@ -106,7 +99,7 @@ pub fn hash: (msg :&str) :str {
         while t < 80 {
             set w15 = lists::get(W, t - 15)
             set w2 = lists::get(W, t - 2)
-            set s0 = ((w15 >> 1) | (w15 << 63)) ^ ((w15 >> 8) | (w15 << 56)) ^ (w15 >> 7)
+            set s0 = (((w15 >> 1) | ((w15 & 1) * (128 << 56))) ^ ((w15 >> 8) | (w15 << 56)) ^ (w15 >> 7))
             set s1 = ((w2 >> 19) | (w2 << 45)) ^ ((w2 >> 61) | (w2 << 3)) ^ (w2 >> 6)
             set w_val = s1 + lists::get(W, t - 7) + s0 + lists::get(W, t - 16)
             set W = rt_lists_push_i64(W, w_val)
