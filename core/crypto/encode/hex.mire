@@ -29,6 +29,7 @@ pub fn decode: (s :&str) :vec[i64] {
     while i + 1 < n {
         set hi = hex_val(strings::substr(s i 1))
         set lo = hex_val(strings::substr(s i + 1 1))
+        if hi < 0 || lo < 0 { return [] :vec[i64] }
         set result = lists::push(result, (hi << 4) | lo)
         set i += 2
     }

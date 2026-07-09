@@ -50,10 +50,12 @@ pub fn decode: (s :&str) :vec[i64] {
         set v2 = char_value(strings::substr(s i + 2 1))
         set v3 = char_value(strings::substr(s i + 3 1))
         if v0 < 0 || v1 < 0 { return [] :vec[i64] }
-        set triple = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3
-        set result = lists::push(result, (triple >> 16) & 0xFF)
         set pad2 = decode_is_pad(s, i + 2, len)
         set pad3 = decode_is_pad(s, i + 3, len)
+        if !pad2 && v2 < 0 { return [] :vec[i64] }
+        if !pad3 && v3 < 0 { return [] :vec[i64] }
+        set triple = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3
+        set result = lists::push(result, (triple >> 16) & 0xFF)
         if !pad2 { set result = lists::push(result, (triple >> 8) & 0xFF) }
         if !pad3 { set result = lists::push(result, triple & 0xFF) }
         set i = i + 4
