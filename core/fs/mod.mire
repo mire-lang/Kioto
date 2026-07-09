@@ -18,7 +18,6 @@ extern fn pal_fs_dir: (path :&str) :str lib "c"
 extern fn pal_fs_name: (path :&str) :str lib "c"
 extern fn pal_fs_ext: (path :&str) :str lib "c"
 
-extern fn pal_fs_read_bytes: (path :&str) :str lib "c"
 extern fn pal_fs_write_bytes: (path :&str, data :&str, len :i64) lib "c"
 extern fn rt_read_bytes: (path :&str) :str lib "c"
 

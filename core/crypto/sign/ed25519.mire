@@ -6,6 +6,7 @@ load kioto::fs
 load kioto::crypto::random::secure
 
 extern fn rt_crypto_byte_at: (s :&str, idx :i64) :i64 lib "c"
+extern fn rt_hex_to_file: (path :&str, hex :&str) :bool lib "c"
 
 fn uid: () :str {
     return strings::from::i64(crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF)
@@ -69,14 +70,10 @@ pub fn verify: (pk_path :str, msg :str, sig_hex :str) :bool {
     set msg_path = "/tmp/mire_msg_" + id + ".txt"
     set sig_path = "/tmp/mire_sig_" + id + ".sig"
     fs::write(msg_path, msg)
-    set hex_path = "/tmp/mire_hex_" + id + ".txt"
-    fs::write(hex_path, sig_hex)
-    proc::run("xxd -r -p " + hex_path + " " + sig_path, [] :vec[str])
-    proc::wait(0)
+    rt_hex_to_file(sig_path, sig_hex)
     set cmd = "openssl pkeyutl -verify -pubin -inkey " + pk_path + " -in " + msg_path + " -sigfile " + sig_path + " -rawin 2>/dev/null"
     set out = proc::capture(cmd, [] :vec[str])
     fs::drop(msg_path)
     fs::drop(sig_path)
-    fs::drop(hex_path)
     return strings::contains(out, "Verified")
 }
