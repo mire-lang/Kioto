@@ -5,3 +5,5 @@ entry = "mod.mire"
 [exports]
 hash   = "hash/mod.mire"
 encode = "encode/mod.mire"
+random = "random/mod.mire"
+sign   = "sign/mod.mire"

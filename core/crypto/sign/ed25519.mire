@@ -1,0 +1,66 @@
+module ed25519
+
+load kioto::strings
+load kioto::proc
+load kioto::fs
+load kioto::crypto::random::secure
+
+fn uid: () :str {
+    return strings::from::i64(crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF)
+}
+
+pub fn generate_sk: () :str {
+    set id = uid()
+    set sk_path = "/tmp/mire_sk_" + id + ".pem"
+    proc::run("openssl genpkey -algorithm ed25519 -out " + sk_path, [] :vec[str])
+    proc::wait(0)
+    return sk_path
+}
+
+pub fn generate_pk: (sk_path :str) :str {
+    set id = uid()
+    set pk_path = "/tmp/mire_pk_" + id + ".pem"
+    proc::run("openssl pkey -in " + sk_path + " -pubout -out " + pk_path, [] :vec[str])
+    proc::wait(0)
+    return pk_path
+}
+
+pub fn read_pem: (path :str) :str {
+    return fs::read(path) :str
+}
+
+pub fn cleanup_keys: (sk_path :str, pk_path :str) {
+    fs::drop(sk_path)
+    fs::drop(pk_path)
+}
+
+pub fn sign: (sk_path :str, msg :str) :str {
+    set id = uid()
+    set msg_path = "/tmp/mire_msg_" + id + ".txt"
+    set sig_path = "/tmp/mire_sig_" + id + ".sig"
+    fs::write(msg_path, msg)
+    set cmd = "openssl pkeyutl -sign -inkey " + sk_path + " -in " + msg_path + " -out " + sig_path + " -rawin"
+    proc::run(cmd, [] :vec[str])
+    proc::wait(0)
+    set sig_hex = strings::trim(proc::capture("xxd -p " + sig_path, [] :vec[str]))
+    fs::drop(msg_path)
+    fs::drop(sig_path)
+    return sig_hex
+}
+
+pub fn verify: (pk_path :str, msg :str, sig_hex :str) :bool {
+    set id = uid()
+    set msg_path = "/tmp/mire_msg_" + id + ".txt"
+    set sig_path = "/tmp/mire_sig_" + id + ".sig"
+    fs::write(msg_path, msg)
+    set hex_path = "/tmp/mire_hex_" + id + ".txt"
+    fs::write(hex_path, sig_hex)
+    proc::run("xxd -r -p " + hex_path + " " + sig_path, [] :vec[str])
+    proc::wait(0)
+    set cmd = "openssl pkeyutl -verify -pubin -inkey " + pk_path + " -in " + msg_path + " -sigfile " + sig_path + " -rawin 2>/dev/null"
+    set out = proc::capture(cmd, [] :vec[str])
+    fs::drop(msg_path)
+    fs::drop(sig_path)
+    fs::drop(hex_path)
+    return strings::contains(out, "Verified")
+}

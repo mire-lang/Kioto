@@ -1,0 +1,32 @@
+module secure
+
+load kioto::strings
+load kioto::lists
+load kioto::proc
+load kioto::crypto::encode::hex
+
+extern fn pal_proc_run: (cmd :str) :str lib "c"
+
+pub fn bytes: (n :i64) :vec[i64] {
+    set cmd = "xxd -p -l " + strings::from::i64(n) + " /dev/urandom"
+    set raw = proc::capture(cmd, [] :vec[str])
+    set hex = strings::trim(raw)
+    return hex::decode(hex)
+}
+
+pub fn seed: (size :i64) :str {
+    set raw = bytes(size)
+    return hex::encode(raw)
+}
+
+pub fn i64: () :i64 {
+    set raw = bytes(8)
+    set result = 0 :i64 mut
+    set i = 0 :i64 mut
+    while i < 8 {
+        set b = lists::get(raw, i) & 0xFF
+        set result = (result << 8) | b
+        set i += 1
+    }
+    return result
+}

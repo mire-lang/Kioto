@@ -204,3 +204,45 @@ pub fn test_crypto_integration: () :bool {
     set hex_len = strings::len(hex)
     return h_len == 64 && b64 != "" && hex == "abcdef"
 }
+
+@[test]
+pub fn test_ed25519_sign_verify: () :bool {
+    set sk = crypto::sign::ed25519::generate_sk()
+    set pk = crypto::sign::ed25519::generate_pk(sk)
+    set msg = "ed25519 test"
+    set sig = crypto::sign::ed25519::sign(sk, msg)
+    set ok = crypto::sign::ed25519::verify(pk, msg, sig)
+    crypto::sign::ed25519::cleanup_keys(sk, pk)
+    return ok
+}
+
+@[test]
+pub fn test_ed25519_wrong_sig: () :bool {
+    set sk = crypto::sign::ed25519::generate_sk()
+    set pk = crypto::sign::ed25519::generate_pk(sk)
+    set sig = crypto::sign::ed25519::sign(sk, "correct")
+    set ok = crypto::sign::ed25519::verify(pk, "wrong", sig)
+    crypto::sign::ed25519::cleanup_keys(sk, pk)
+    return !ok
+}
+
+@[test]
+pub fn test_csprng_bytes: () :bool {
+    set b = crypto::random::secure::bytes(16)
+    set n = lists::len(b)
+    return n == 16
+}
+
+@[test]
+pub fn test_csprng_seed: () :bool {
+    set s = crypto::random::secure::seed(32)
+    set n = strings::len(s)
+    return n == 64
+}
+
+@[test]
+pub fn test_csprng_unique: () :bool {
+    set r1 = crypto::random::secure::i64()
+    set r2 = crypto::random::secure::i64()
+    return r1 != r2
+}
