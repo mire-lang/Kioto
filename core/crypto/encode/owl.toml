@@ -3,4 +3,5 @@ name = "encode"
 entry = "mod.mire"
 
 [exports]
-hex = "hex.mire"
+hex    = "hex.mire"
+base64 = "base64.mire"

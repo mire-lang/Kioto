@@ -1,0 +1,128 @@
+module base64
+
+load kioto::lists
+load kioto::strings
+
+fn ALPHABET: () :str {
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+}
+
+fn char_value: (c :str) :i64 {
+    if c == "A" { return 0 }
+    if c == "B" { return 1 }
+    if c == "C" { return 2 }
+    if c == "D" { return 3 }
+    if c == "E" { return 4 }
+    if c == "F" { return 5 }
+    if c == "G" { return 6 }
+    if c == "H" { return 7 }
+    if c == "I" { return 8 }
+    if c == "J" { return 9 }
+    if c == "K" { return 10 }
+    if c == "L" { return 11 }
+    if c == "M" { return 12 }
+    if c == "N" { return 13 }
+    if c == "O" { return 14 }
+    if c == "P" { return 15 }
+    if c == "Q" { return 16 }
+    if c == "R" { return 17 }
+    if c == "S" { return 18 }
+    if c == "T" { return 19 }
+    if c == "U" { return 20 }
+    if c == "V" { return 21 }
+    if c == "W" { return 22 }
+    if c == "X" { return 23 }
+    if c == "Y" { return 24 }
+    if c == "Z" { return 25 }
+    if c == "a" { return 26 }
+    if c == "b" { return 27 }
+    if c == "c" { return 28 }
+    if c == "d" { return 29 }
+    if c == "e" { return 30 }
+    if c == "f" { return 31 }
+    if c == "g" { return 32 }
+    if c == "h" { return 33 }
+    if c == "i" { return 34 }
+    if c == "j" { return 35 }
+    if c == "k" { return 36 }
+    if c == "l" { return 37 }
+    if c == "m" { return 38 }
+    if c == "n" { return 39 }
+    if c == "o" { return 40 }
+    if c == "p" { return 41 }
+    if c == "q" { return 42 }
+    if c == "r" { return 43 }
+    if c == "s" { return 44 }
+    if c == "t" { return 45 }
+    if c == "u" { return 46 }
+    if c == "v" { return 47 }
+    if c == "w" { return 48 }
+    if c == "x" { return 49 }
+    if c == "y" { return 50 }
+    if c == "z" { return 51 }
+    if c == "0" { return 52 }
+    if c == "1" { return 53 }
+    if c == "2" { return 54 }
+    if c == "3" { return 55 }
+    if c == "4" { return 56 }
+    if c == "5" { return 57 }
+    if c == "6" { return 58 }
+    if c == "7" { return 59 }
+    if c == "8" { return 60 }
+    if c == "9" { return 61 }
+    if c == "+" { return 62 }
+    if c == "/" { return 63 }
+    return 0
+}
+
+pub fn encode: (bytes :vec[i64]) :str {
+    set n = lists::len(bytes)
+    set s = "" :str mut
+    set alphabet = ALPHABET()
+    set i = 0 :i64 mut
+    while i < n {
+        set b0 = lists::get(bytes, i) & 0xFF
+        set b1 = 0 :i64 mut
+        if i + 1 < n { set b1 = lists::get(bytes, i + 1) & 0xFF }
+        set b2 = 0 :i64 mut
+        if i + 2 < n { set b2 = lists::get(bytes, i + 2) & 0xFF }
+        set triple = (b0 << 16) | (b1 << 8) | b2
+        set c0 = (triple >> 18) & 0x3F
+        set c1 = (triple >> 12) & 0x3F
+        set c2 = (triple >> 6) & 0x3F
+        set c3 = triple & 0x3F
+        set s = s + strings::substr(alphabet c0 1)
+        set s = s + strings::substr(alphabet c1 1)
+        if i + 1 < n { set s = s + strings::substr(alphabet c2 1) } else { set s = s + "=" }
+        if i + 2 < n { set s = s + strings::substr(alphabet c3 1) } else { set s = s + "=" }
+        set i = i + 3
+    }
+    return s
+}
+
+pub fn decode: (s :&str) :vec[i64] {
+    set len = strings::len(s)
+    set result = [] :vec[i64] mut
+    if len == 0 { return result }
+    set i = 0 :i64 mut
+    while i < len {
+        set v0 = char_value(strings::substr(s i 1))
+        set v1 = char_value(strings::substr(s i + 1 1))
+        set v2 = char_value(strings::substr(s i + 2 1))
+        set v3 = char_value(strings::substr(s i + 3 1))
+        set triple = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3
+        set result = lists::push(result, (triple >> 16) & 0xFF)
+        set pad2 = decode_is_pad(s, i + 2, len)
+        set pad3 = decode_is_pad(s, i + 3, len)
+        if !pad2 { set result = lists::push(result, (triple >> 8) & 0xFF) }
+        if !pad3 { set result = lists::push(result, triple & 0xFF) }
+        set i = i + 4
+    }
+    return result
+}
+
+fn decode_is_pad: (s :&str, pos :i64, slen :i64) :bool {
+    if pos >= slen { return true }
+    set ch = strings::substr(s pos 1)
+    return ch == "="
+}
