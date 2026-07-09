@@ -37,10 +37,8 @@ pub fn decode: (s :&str) :vec[i64] {
 
 fn hex_val: (c :str) :i64 {
     set pos = strings::index(HEX_STR(), c)
-    if pos >= 0 { return pos } else {
-        set pos2 = strings::index("ABCDEF", c)
-        if pos2 >= 0 { return 10 + pos2 } else {
-            return 0
-        }
-    }
+    if pos >= 0 { return pos }
+    set pos2 = strings::index("ABCDEF", c)
+    if pos2 >= 0 { return 10 + pos2 }
+    return -1
 }

@@ -8,10 +8,6 @@ load kioto::crypto::random::secure
 extern fn rt_crypto_byte_at: (s :&str, idx :i64) :i64 lib "c"
 extern fn rt_hex_to_file: (path :&str, hex :&str) :bool lib "c"
 
-fn uid: () :str {
-    return strings::from::i64(crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF)
-}
-
 fn raw_to_hex: (raw :str) :str {
     set hex_tbl = "0123456789abcdef"
     set n = strings::len(raw)
@@ -26,19 +22,18 @@ fn raw_to_hex: (raw :str) :str {
 }
 
 pub fn generate_sk: () :str {
-    set id = uid()
-    set sk_path = "/tmp/mire_sk_" + id + ".pem"
-    proc::run("openssl genpkey -algorithm ed25519 -out " + sk_path, [] :vec[str])
-    proc::wait(0)
-    return sk_path
+    set id = crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF
+    set pid = proc::run("openssl genpkey -algorithm ed25519 -out /tmp/mire_sk_" + strings::from::i64(id) + ".pem", [] :vec[str])
+    proc::wait(pid)
+    return "/tmp/mire_sk_" + strings::from::i64(id) + ".pem"
 }
 
 pub fn generate_pk: (sk_path :str) :str {
-    set id = uid()
-    set pk_path = "/tmp/mire_pk_" + id + ".pem"
-    proc::run("openssl pkey -in " + sk_path + " -pubout -out " + pk_path, [] :vec[str])
-    proc::wait(0)
-    return pk_path
+    set id = crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF
+    set id_str = strings::from::i64(id)
+    set pid = proc::run("openssl pkey -in " + sk_path + " -pubout -out /tmp/mire_pk_" + id_str + ".pem", [] :vec[str])
+    proc::wait(pid)
+    return "/tmp/mire_pk_" + id_str + ".pem"
 }
 
 pub fn read_pem: (path :str) :str {
@@ -46,34 +41,37 @@ pub fn read_pem: (path :str) :str {
 }
 
 pub fn cleanup_keys: (sk_path :str, pk_path :str) {
-    fs::drop(sk_path)
-    fs::drop(pk_path)
+    if len(sk_path) > 0 { fs::drop(sk_path) }
+    if len(pk_path) > 0 { fs::drop(pk_path) }
 }
 
 pub fn sign: (sk_path :str, msg :str) :str {
-    set id = uid()
-    set msg_path = "/tmp/mire_msg_" + id + ".txt"
-    set sig_path = "/tmp/mire_sig_" + id + ".sig"
+    set id = crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF
+    set msg_path = "/tmp/mire_msg_" + strings::from::i64(id) + ".txt"
+    set sig_path = "/tmp/mire_sig_" + strings::from::i64(id) + ".sig"
     fs::write(msg_path, msg)
-    set cmd = "openssl pkeyutl -sign -inkey " + sk_path + " -in " + msg_path + " -out " + sig_path + " -rawin"
-    proc::run(cmd, [] :vec[str])
-    proc::wait(0)
-    set sig_raw = fs::read_bytes(sig_path)
-    set sig_hex = raw_to_hex(sig_raw)
+    set pid = proc::run("openssl pkeyutl -sign -inkey " + sk_path + " -in " + msg_path + " -out " + sig_path + " -rawin", [] :vec[str])
+    proc::wait(pid)
+    if fs::exists(sig_path) && fs::size(sig_path) > 0 {
+        set sig_raw = fs::read_bytes(sig_path)
+        set sig_hex = raw_to_hex(sig_raw)
+        fs::drop(msg_path)
+        fs::drop(sig_path)
+        return sig_hex
+    }
     fs::drop(msg_path)
     fs::drop(sig_path)
-    return sig_hex
+    return ""
 }
 
 pub fn verify: (pk_path :str, msg :str, sig_hex :str) :bool {
-    set id = uid()
-    set msg_path = "/tmp/mire_msg_" + id + ".txt"
-    set sig_path = "/tmp/mire_sig_" + id + ".sig"
+    set id = crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF
+    set msg_path = "/tmp/mire_msg_" + strings::from::i64(id) + ".txt"
+    set sig_path = "/tmp/mire_sig_" + strings::from::i64(id) + ".sig"
     fs::write(msg_path, msg)
     rt_hex_to_file(sig_path, sig_hex)
-    set cmd = "openssl pkeyutl -verify -pubin -inkey " + pk_path + " -in " + msg_path + " -sigfile " + sig_path + " -rawin 2>/dev/null"
-    set out = proc::capture(cmd, [] :vec[str])
+    set result = proc::capture("openssl pkeyutl -verify -pubin -inkey " + pk_path + " -in " + msg_path + " -sigfile " + sig_path + " -rawin 2>&1; if [ $? -eq 0 ]; then echo VERIFIED; else echo FAILED; fi", [] :vec[str])
     fs::drop(msg_path)
     fs::drop(sig_path)
-    return strings::contains(out, "Verified")
+    return strings::contains(result, "VERIFIED")
 }
