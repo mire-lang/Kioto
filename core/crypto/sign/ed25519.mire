@@ -5,8 +5,23 @@ load kioto::proc
 load kioto::fs
 load kioto::crypto::random::secure
 
+extern fn rt_crypto_byte_at: (s :&str, idx :i64) :i64 lib "c"
+
 fn uid: () :str {
     return strings::from::i64(crypto::random::secure::i64() & 0x7FFFFFFFFFFFFFFF)
+}
+
+fn raw_to_hex: (raw :str) :str {
+    set hex_tbl = "0123456789abcdef"
+    set n = strings::len(raw)
+    set result = "" :str mut
+    set i = 0 :i64 mut
+    while i < n {
+        set b = rt_crypto_byte_at(raw, i) & 0xFF
+        set result = result + strings::substr(hex_tbl b >> 4 1) + strings::substr(hex_tbl b & 0x0F 1)
+        set i += 1
+    }
+    return result
 }
 
 pub fn generate_sk: () :str {
@@ -42,7 +57,8 @@ pub fn sign: (sk_path :str, msg :str) :str {
     set cmd = "openssl pkeyutl -sign -inkey " + sk_path + " -in " + msg_path + " -out " + sig_path + " -rawin"
     proc::run(cmd, [] :vec[str])
     proc::wait(0)
-    set sig_hex = strings::trim(proc::capture("xxd -p " + sig_path, [] :vec[str]))
+    set sig_raw = fs::read_bytes(sig_path)
+    set sig_hex = raw_to_hex(sig_raw)
     fs::drop(msg_path)
     fs::drop(sig_path)
     return sig_hex

@@ -1,8 +1,9 @@
 module fs
+load kioto::fs::check
+
 extern fn pal_fs_read: (path :&str) :str lib "c"
 extern fn pal_fs_write: (path :&str, data :&str) lib "c"
 extern fn pal_fs_append: (path :&str, data :&str) lib "c"
-extern fn pal_fs_is_file: (path :&str) :bool lib "c"
 extern fn pal_fs_exists: (path :&str) :bool lib "c"
 extern fn pal_fs_size: (path :&str) :i64 lib "c"
 extern fn pal_fs_copy: (src :&str, dst :&str) lib "c"
@@ -17,10 +18,13 @@ extern fn pal_fs_dir: (path :&str) :str lib "c"
 extern fn pal_fs_name: (path :&str) :str lib "c"
 extern fn pal_fs_ext: (path :&str) :str lib "c"
 
+extern fn pal_fs_read_bytes: (path :&str) :str lib "c"
+extern fn pal_fs_write_bytes: (path :&str, data :&str, len :i64) lib "c"
+extern fn rt_read_bytes: (path :&str) :str lib "c"
+
 pub fn read: (path :&str) :str { return pal_fs_read(*path) }
 pub fn write: (path :&str, data :&str) { pal_fs_write(*path, *data) }
 pub fn append: (path :&str, data :&str) { pal_fs_append(*path, *data) }
-pub fn is_file: (path :&str) :bool { return pal_fs_is_file(*path) }
 pub fn exists: (path :&str) :bool { return pal_fs_exists(*path) }
 pub fn size: (path :&str) :i64 { return pal_fs_size(*path) }
 pub fn copy: (src :&str, dst :&str) { pal_fs_copy(*src, *dst) }
@@ -34,3 +38,5 @@ pub fn join: (a :&str, b :&str) :str { return pal_fs_join(*a, *b) }
 pub fn dir: (path :&str) :str { return pal_fs_dir(*path) }
 pub fn name: (path :&str) :str { return pal_fs_name(*path) }
 pub fn ext: (path :&str) :str { return pal_fs_ext(*path) }
+pub fn read_bytes: (path :&str) :str { return rt_read_bytes(*path) }
+pub fn write_bytes: (path :&str, data :&str, len :i64) { pal_fs_write_bytes(*path, *data, len) }
