@@ -9,11 +9,11 @@ SHA-512 hash implementation per FIPS 180-4:
 - Tested against NIST vectors (empty string, "abc", 128-char length check)
 - Uses same internal structure as SHA-256 with 64-bit constants
 
-Implementation note: K constants (80 × 64-bit values) are built via
-`rt_lists_push_i64()` instead of a list literal. This works around a
-Mire compiler bug where `[large_i64, ...] :vec[i64]` list literals with
-3+ elements and values exceeding ~2^62 corrupt elements after index 0.
-SHA-256 is unaffected because its constants fit in 32 bits.
+Implementation note: K constants (80 × 64-bit values) are currently
+built via `rt_lists_push_i64()` instead of a list literal. The underlying
+compiler bug (negative integer literal lexing in lists, Avenys <3.12.5)
+is now fixed — the workaround is retained for backward compatibility
+but is no longer required with Avenys ≥3.12.5.
 
 ### Fixed
 
