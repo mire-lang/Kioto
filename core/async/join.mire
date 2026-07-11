@@ -1,0 +1,2 @@
+module join
+pub fn thread: (tid :i64) :i64 { return thread::join(tid) }

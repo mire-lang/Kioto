@@ -30,6 +30,6 @@ pub fn test_math_complex_conj: () :bool {
 @[test]
 pub fn test_math_complex_to_str: () :bool {
     set z1 = math::complex::new(3.0 4.0)
-    set s1 = math::complex::to_str(z1)
+    set s1 = math::complex::text(z1)
     return strings::len(s1) > 0
 }

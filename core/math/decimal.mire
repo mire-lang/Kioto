@@ -21,7 +21,7 @@ pub fn new: (mantissa :i64, scale :i64) :Decimal {
 }
 
 pub fn zero: () :Decimal { return new(0, 0) }
-pub fn from_int: (value :i64) :Decimal { return new(value, 0) }
+pub fn int: (value :i64) :Decimal { return new(value, 0) }
 
 pub fn mantissa: (value :Decimal) :i64 { return value.mantissa }
 pub fn scale: (value :Decimal) :i64 { return value.scale }
@@ -42,7 +42,7 @@ fn segment_to_i64: (segment :str) :i64 {
     return rt_string_to_i64(segment)
 }
 
-pub fn from_str: (text :str) :Decimal {
+pub fn parse: (text :str) :Decimal {
     set clean = rt_strings_strip(text) mut
     if rt_strings_len(clean) == 0 { return zero() }
 
@@ -75,14 +75,14 @@ pub fn from_str: (text :str) :Decimal {
     return normalize((Decimal mantissa: m, scale: s))
 }
 
-pub fn to_float: (value :Decimal) :f64 {
+pub fn float: (value :Decimal) :f64 {
     set m = value.mantissa :f64
     set s = value.scale
     if s == 0 { return m }
     return m / (pow10(s) :f64)
 }
 
-pub fn to_str: (value :Decimal) :str {
+pub fn text: (value :Decimal) :str {
     set m = value.mantissa mut
     set s = value.scale
     if s <= 0 { return str(m) }
@@ -124,7 +124,7 @@ pub fn mul: (a :Decimal, b :Decimal) :Decimal {
     return normalize((Decimal mantissa: a.mantissa * b.mantissa, scale: a.scale + b.scale))
 }
 
-pub fn div_prec: (a :Decimal, b :Decimal, precision :i64) :Decimal {
+pub fn prec: (a :Decimal, b :Decimal, precision :i64) :Decimal {
     if b.mantissa == 0 { return zero() }
     set shift = precision + b.scale - a.scale
     set numerator = a.mantissa mut
@@ -137,7 +137,7 @@ pub fn div_prec: (a :Decimal, b :Decimal, precision :i64) :Decimal {
 }
 
 pub fn div: (a :Decimal, b :Decimal) :Decimal {
-    return div_prec(a, b, 12)
+    return prec(a, b, 12)
 }
 
 pub fn round: (value :Decimal) :i64 {

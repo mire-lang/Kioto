@@ -1,7 +1,9 @@
 module http
 load kioto::net::_pal
-
-// ---- Client (existing) ----
+load kioto::net::http::req
+load kioto::net::http::resp
+load kioto::net::http::server
+load kioto::net::http::serve
 
 fn is_https: (url :str) :bool {
     return strings::startswith(url "https://")
@@ -32,7 +34,7 @@ fn build_post_request: (path :str, host :str, content_type :str, body_str :str, 
     set request = "POST " + path + " HTTP/1.1\r\n" :str mut
     set request = request + "Host: " + host + "\r\n" :str mut
     set request = request + "Content-Type: " + content_type + "\r\n" :str mut
-    set request = request + "Content-Length: " + strings::from_i64(blen) + "\r\n" :str mut
+    set request = request + "Content-Length: " + strings::from::i64(blen) + "\r\n" :str mut
     set request = request + "Connection: close\r\n" :str mut
     set request = request + "User-Agent: kioto/3.0\r\n" :str mut
     set request = request + "\r\n"
@@ -55,7 +57,7 @@ fn http_close: (fd :i64, tls :bool) {
 
 fn extract_body: (response :str) :str {
     set r = response
-    set split_header = strings::index_of(r "\r\n\r\n")
+    set split_header = strings::index(r "\r\n\r\n")
     if split_header < 0 { return r }
     set rn = strings::len(r)
     return strings::substr(r split_header + 4 rn)
@@ -64,13 +66,13 @@ fn extract_body: (response :str) :str {
 fn extract_host: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set slash = strings::index_of(u "/") :i64 mut
-    set colon = strings::index_of(u ":") :i64 mut
+    set slash = strings::index(u "/") :i64 mut
+    set colon = strings::index(u ":") :i64 mut
     if colon < 0 {
         if slash < 0 { return u }
         return strings::substr(u 0 slash)
@@ -84,30 +86,30 @@ fn extract_host: (url :str) :str {
 fn extract_port: (url :str) :i64 {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set colon = strings::index_of(u ":")
+    set colon = strings::index(u ":")
     if colon < 0 { return 0 :i64 }
     set un2 = strings::len(u)
     set after = strings::substr(u colon + 1 un2)
-    set slash = strings::index_of(after "/") :i64 mut
+    set slash = strings::index(after "/") :i64 mut
     set port_str = after :str mut
     if slash >= 0 { set port_str = strings::substr(after 0 slash) }
-    return strings::to_i64(port_str)
+    return strings::conv::i64(port_str)
 }
 
 fn extract_path: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set slash = strings::index_of(u "/")
+    set slash = strings::index(u "/")
     if slash < 0 { return "/" }
     set un = strings::len(u)
     return strings::substr(u slash un)
@@ -152,99 +154,4 @@ pub fn post: (url :&str, body_content :&str, content_type :&str) :str {
     set response = http_recv(fd, use_tls)
     http_close(fd, use_tls)
     return extract_body(response)
-}
-
-// ---- Server module (flattened) ----
-
-pub fn server_mime: (path :&str) :str {
-    set p = *path
-    if strings::endswith(p ".html") { return "text/html; charset=utf-8" }
-    if strings::endswith(p ".css")  { return "text/css; charset=utf-8" }
-    if strings::endswith(p ".js")   { return "application/javascript; charset=utf-8" }
-    if strings::endswith(p ".json") { return "application/json; charset=utf-8" }
-    if strings::endswith(p ".svg")  { return "image/svg+xml" }
-    if strings::endswith(p ".png")  { return "image/png" }
-    if strings::endswith(p ".jpg")  { return "image/jpeg" }
-    if strings::endswith(p ".ico")  { return "image/x-icon" }
-    return "application/octet-stream"
-}
-
-pub fn req_method: (raw :&str) :str {
-    set s = *raw
-    set sp = strings::index_of(s " ")
-    if sp < 0 { return "" }
-    return strings::substr(s 0 sp)
-}
-
-pub fn req_path: (raw :&str) :str {
-    set s = *raw
-    set sp1 = strings::index_of(s " ")
-    if sp1 < 0 { return "/" }
-    set sn = strings::len(s)
-    set rest = strings::substr(s sp1 + 1 sn)
-    set sp2 = strings::index_of(rest " ") :i64 mut
-    if sp2 < 0 { set sp2 = strings::index_of(rest "\r") }
-    if sp2 < 0 { return rest }
-    return strings::substr(rest 0 sp2)
-}
-
-pub fn req_header: (raw :&str, name :&str) :str {
-    set s = *raw
-    set n = *name
-    set search = n + ": "
-    set pos = strings::index_of(s search)
-    if pos < 0 { return "" }
-    set start = pos + strings::len(search)
-    set sn = strings::len(s)
-    set rest = strings::substr(s start sn)
-    set end = strings::index_of(rest "\r\n") :i64 mut
-    if end < 0 { set end = strings::len(rest) }
-    return strings::substr(rest 0 end)
-}
-
-pub fn req_body: (raw :&str) :str {
-    set s = *raw
-    set pos = strings::index_of(s "\r\n\r\n")
-    if pos < 0 { return "" }
-    set sn = strings::len(s)
-    return strings::substr(s pos + 4 sn)
-}
-
-pub fn req_query: (raw :&str) :str {
-    set p = req_path(raw)
-    set qm = strings::index_of(p "?")
-    if qm < 0 { return "" }
-    set pn = strings::len(p)
-    return strings::substr(p qm + 1 pn)
-}
-
-pub fn req_path_only: (raw :&str) :str {
-    set p = req_path(raw)
-    set qm = strings::index_of(p "?")
-    if qm < 0 { return p }
-    return strings::substr(p 0 qm)
-}
-
-pub fn resp_200: (body_str :&str, content_type :&str) :str {
-    return "HTTP/1.1 200 OK\r\nContent-Type: " + *content_type + "\r\nContent-Length: " + strings::from_i64(strings::len(body_str)) + "\r\nConnection: close\r\nServer: kioto\r\n\r\n" + *body_str
-}
-
-pub fn resp_404: () :str {
-    return resp_200("<h1>404 Not Found</h1>" "text/html; charset=utf-8")
-}
-
-pub fn resp_302: (location :&str) :str {
-    return "HTTP/1.1 302 Found\r\nLocation: " + *location + "\r\nContent-Length: 0\r\nConnection: close\r\nServer: kioto\r\n\r\n"
-}
-
-pub fn serve_file: (fd :i64, file_path :&str) {
-    set fp = *file_path
-    if fs::exists(fp) {
-        set data = fs::read(fp)
-        set ct = server_mime(fp)
-        set resp = resp_200(data ct)
-        net::send(fd resp)
-    } else {
-        net::send(fd resp_404())
-    }
 }

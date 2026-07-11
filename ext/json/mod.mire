@@ -106,7 +106,7 @@ fn _find_key_value_pos: (s :&str, obj_start :i64, key :&str) :i64 {
     set n = obj_end
     while scan_start < n {
         set slice = strings::substr(s scan_start n - scan_start)
-        set found = strings::index_of(slice search)
+        set found = strings::index(slice search)
         if found < 0 { return -1 :i64 }
         set abs_found = scan_start + found
         set after_key = abs_found + strings::len(search)
@@ -158,7 +158,7 @@ fn _nav_step: (s :&str, pos :i64, seg :str) :i64 {
     set c = strings::substr(val 0 1)
     if c == "{" { return _find_key_value_pos(s pos seg) }
     if c == "[" {
-        set idx = strings::to_i64(seg)
+        set idx = strings::conv::i64(seg)
         return _nth_in_array(s pos idx)
     }
     return -1 :i64

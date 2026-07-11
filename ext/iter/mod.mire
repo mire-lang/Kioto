@@ -1,17 +1,19 @@
 module iter
+extern fn rt_vec_len: (list :&vec[str]) :i64 lib "c"
+extern fn rt_vec_get_str: (list :&vec[str], index :i64) :str lib "c"
 
 pub fn range: (start :i64, end :i64) :str {
     if start >= end { return "" }
     set n = end - start
-    if n == 1 { return strings::from_i64(start) }
+    if n == 1 { return strings::from::i64(start) }
     if n == 2 {
-        return strings::from_i64(start) + "\n" + strings::from_i64(start + 1)
+        return strings::from::i64(start) + "\n" + strings::from::i64(start + 1)
     }
-    set result = strings::from_i64(start) :str mut
+    set result = strings::from::i64(start) :str mut
     set i = start + 1 :i64 mut
     while i < end {
         set result = result + "\n"
-        set result = result + strings::from_i64(i)
+        set result = result + strings::from::i64(i)
         set i = i + 1
     }
     return result
@@ -38,7 +40,7 @@ pub fn last: (items :&vec[str]) :str {
     return rt_vec_get_str(items n - 1)
 }
 
-pub fn is_empty: (items :&vec[str]) :bool {
+pub fn empty: (items :&vec[str]) :bool {
     return rt_vec_len(items) == 0
 }
 
@@ -53,7 +55,7 @@ pub fn contains: (items :&vec[str], needle :&str) :bool {
     return false
 }
 
-pub fn index_of: (items :&vec[str], needle :&str) :i64 {
+pub fn index: (items :&vec[str], needle :&str) :i64 {
     set n = rt_vec_len(items)
     set i = 0 :i64 mut
     set nd = *needle

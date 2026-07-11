@@ -30,6 +30,11 @@ pub fn send: (fd :i64, data :&str) :mu {
     pal_net_send(fd, d)
 }
 
+pub fn send_bytes: (fd :i64, data :&str, len :i64) :mu {
+    set d = *data
+    pal_net_send_bytes(fd, d, len)
+}
+
 // Receive up to max_bytes from a TCP socket.
 pub fn recv: (fd :i64, max_bytes :i64) :str {
     return pal_net_recv(fd, max_bytes)

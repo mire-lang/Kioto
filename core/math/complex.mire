@@ -76,11 +76,11 @@ pub fn pow: (z :Complex, exponent :Complex) :Complex {
     return c_exp(mul(exponent, c_log(z)))
 }
 
-pub fn from_polar: (radius :f64, angle :f64) :Complex {
+pub fn polar: (radius :f64, angle :f64) :Complex {
     return new(radius * basic::cos(angle), radius * basic::sin(angle))
 }
 
-pub fn to_str: (z :Complex) :str {
+pub fn text: (z :Complex) :str {
     set re = str(z.re)
     set im = z.im
     if im < 0.0 {

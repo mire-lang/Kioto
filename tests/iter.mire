@@ -43,14 +43,14 @@ pub fn test_iter_range: () :bool {
 }
 
 @[test]
-pub fn test_iter_is_empty: () :bool {
+pub fn test_iter_empty: () :bool {
     set parts = strings::split("" ",")
-    return iter::is_empty(parts)
+    return iter::empty(parts)
 }
 
 @[test]
-pub fn test_iter_index_of: () :bool {
+pub fn test_iter_index: () :bool {
     set parts = strings::split("a|b|c" "|")
-    set idx = iter::index_of(parts "b")
+    set idx = iter::index(parts "b")
     return idx == 1
 }

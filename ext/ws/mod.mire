@@ -23,13 +23,13 @@ load kioto::ws::server
 fn extract_ws_host: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set slash = strings::index_of(u "/") :i64 mut
-    set colon = strings::index_of(u ":") :i64 mut
+    set slash = strings::index(u "/") :i64 mut
+    set colon = strings::index(u ":") :i64 mut
     if colon < 0 {
         if slash < 0 { return u }
         return strings::substr(u 0 slash)
@@ -43,30 +43,30 @@ fn extract_ws_host: (url :str) :str {
 fn extract_ws_port: (url :str) :i64 {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set colon = strings::index_of(u ":")
+    set colon = strings::index(u ":")
     if colon < 0 { return 0 :i64 }
     set un2 = strings::len(u)
     set after = strings::substr(u colon + 1 un2)
-    set slash = strings::index_of(after "/") :i64 mut
+    set slash = strings::index(after "/") :i64 mut
     set port_str = after :str mut
     if slash >= 0 { set port_str = strings::substr(after 0 slash) }
-    return strings::to_i64(port_str)
+    return strings::conv::i64(port_str)
 }
 
 fn extract_ws_path: (url :str) :str {
     set u = url :str mut
     set scheme = "://"
-    set pos = strings::index_of(u scheme)
+    set pos = strings::index(u scheme)
     if pos >= 0 {
         set un = strings::len(u)
         set u = strings::substr(u pos + 3 un)
     }
-    set slash = strings::index_of(u "/")
+    set slash = strings::index(u "/")
     if slash < 0 { return "/" }
     set un = strings::len(u)
     return strings::substr(u slash un)

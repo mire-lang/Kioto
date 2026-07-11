@@ -3,4 +3,9 @@ name = "async"
 entry = "mod.mire"
 
 [exports]
-task = "task/mod.mire"
+error = "error.mire"
+check = "check.mire"
+spawn = "spawn.mire"
+join  = "join.mire"
+close = "close.mire"
+task  = "task/mod.mire"

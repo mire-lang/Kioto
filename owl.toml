@@ -1,6 +1,6 @@
 [project]
 name = "kioto"
-version = "2.2.0"
+version = "2.3.0"
 entry = "code/mod.mire"
 
 [paths]

@@ -3,18 +3,18 @@ load kioto
 @[test]
 pub fn test_async_ready: () :bool {
     set t = async::ready("done")
-    return async::is_done(t)
+    return async::check::done(t)
 }
 
 @[test]
 pub fn test_async_failed: () :bool {
     set t = async::failed("error")
-    return async::is_error(t)
+    return async::check::error(t)
 }
 
 @[test]
 pub fn test_async_pending: () :bool {
-    return async::is_pending(async::pending())
+    return async::check::pending(async::pending())
 }
 
 @[test]
