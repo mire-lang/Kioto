@@ -8,8 +8,6 @@ load kioto::async::close
 extern fn pal_time_sleep_ms: (ms :i64) lib "c"
 extern fn pal_proc_spawn: (cmd :str) :i64 lib "c"
 extern fn pal_proc_wait: (pid :i64) :i64 lib "c"
-extern fn pal_proc_exists: (pid :i64) :i64 lib "c"
-
 pub fn sleep: (ms :i64) { pal_time_sleep_ms(ms) }
 
 pub fn ready: (value :&str) :str { return "done:" + *value }
@@ -26,7 +24,6 @@ pub fn value: (task :&str, fallback :&str) :str {
 
 pub fn spawn: (cmd :str) :i64 { return pal_proc_spawn(cmd) }
 pub fn wait: (pid :i64) :i64 { return pal_proc_wait(pid) }
-pub fn exists: (pid :i64) :bool { return pal_proc_exists(pid) != 0 }
 
 pub fn channel: () :str {
     set stamp = strings::from::i64(time::unix::ms())
