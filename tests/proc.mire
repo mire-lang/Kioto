@@ -1,0 +1,7 @@
+load kioto
+
+@[test]
+pub fn test_proc_write: () :bool {
+    proc::write("proc-write-test-ok\n")
+    return true
+}

@@ -1,0 +1,6 @@
+[project]
+name = "fs"
+entry = "mod.mire"
+
+[exports]
+check = "check.mire"

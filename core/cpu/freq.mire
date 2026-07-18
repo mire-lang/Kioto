@@ -1,0 +1,3 @@
+module freq
+extern fn pal_cpu_freq_mhz: () :i64 lib "c"
+pub fn mhz: () :i64 { return pal_cpu_freq_mhz() }

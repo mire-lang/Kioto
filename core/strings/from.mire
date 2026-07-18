@@ -1,0 +1,3 @@
+module from
+extern fn rt_i64_to_string: (value :i64) :str lib "c"
+pub fn i64: (value :i64) :str { return rt_i64_to_string(value) }
