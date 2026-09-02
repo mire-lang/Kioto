@@ -1,4 +1,5 @@
 module complex
+load kioto::math::basic
 struct Complex {
     re :f64
     im :f64
@@ -63,6 +64,7 @@ pub fn div: (a :Complex, b :Complex) :Complex {
     set br = b.re
     set bi = b.im
     set denom = (br * br) + (bi * bi)
+    if denom == 0.0 { return zero() }
     return new(((ar * br) + (ai * bi)) / denom, ((ai * br) - (ar * bi)) / denom)
 }
 

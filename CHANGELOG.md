@@ -1,5 +1,183 @@
 # kioto changelog
 
+## [2.4.7] — 2026-08-06 (capability-based fs removal: remove / remove_all)
+
+### Added
+- **`fs::remove(path)`** — removes a single entry (file, symlink, or empty
+  directory) via the new PAL capability primitive `pal_root_remove`. A symlink
+  is unlinked, never followed; a non-empty directory fails with
+  `PAL_ERR_NOT_EMPTY` (11).
+- **`fs::remove_all(path)`** — recursively removes a file/symlink/dir tree.
+  Recursion is composed in kioto over `pal_dir_open` + `pal_root_remove`;
+  intermediate and trailing symlinks are never followed (the sandbox rejects
+  them), so an external target a symlink points at is always left intact.
+- **`fs::last_error()`** — returns the last PAL error code from a failed fs
+  operation (0 = `PAL_ERR_OK`; 1 = `NOT_FOUND`, 2 = `PERMISSION`, 11 =
+  `NOT_EMPTY`, ...). Read immediately after a failed call.
+
+### Changed
+- `core/fs/mod.mire` now declares `pal_root_remove`, `pal_fs_remove`, and
+  `pal_last_error` externs. Removal no longer goes through shell helpers.
+- Error-code fidelity: `pal_root_open` on a missing parent now reports
+  `PAL_ERR_NOT_FOUND` (the PAL open-family dispatch maps errno instead of a
+  hard-coded `PAL_ERR_IO`).
+
+### Removed
+- Nothing removed.
+
+### Tests
+- `tests/fs_remove.mire` — 10 tests covering single-entry removal, missing /
+  non-empty failures with exact error codes, nested `remove_all`, and four
+  symlink-escape adversarial cases (external targets verified intact).
+## [2.4.6] — 2026-08-05 (shell migration: proc::run::shell removed)
+
+### Removed
+- **`proc::run::shell` removed**: the last Mire surface that invoked a shell
+  (`/bin/sh -c`) is gone. All process launching is now argv-safe (`fork`+`execvp`).
+  Replaced by:
+  - `proc::run::output_cwd(cmd, args, cwd, merge_err)` — argv capture with
+    optional working directory and stderr merge.
+  - `proc::run::last_exit()` — exit code of the last capture.
+  - `proc::run::read_line()` — reads the controlling terminal directly (no
+    subprocess; returns `"y"` in non-interactive contexts).
+
+### Changed
+- **`PAL_ALLOW_LEGACY_SHELL` default flipped to `0`** in avenys `pal.h`.
+  The runtime shell functions (`pal_proc_system`, `pal_proc_capture*`,
+  `rt_proc_capture_output`) are compiled out by default.
+- **kioto `core/proc/mod.mire`**: removed `proc::run::shell` and its
+  `rt_proc_capture_output` extern; added `rt_proc_capture_argv2`,
+  `rt_proc_last_exit`, `rt_read_tty` externs and the `output_cwd`,
+  `last_exit`, `read_line` APIs.
+- `meta.toml` bumped to 2.4.6 with `language = "mire avenys v3.24.26"`.
+
+## [2.4.5] — 2026-08-05 (.method() syntax tests + strict security mode)
+
+### Added
+- `tests/collections_method.mire`: regression tests for `.method()` syntax on vec, map, and str collections (`test_vec_method_syntax`, `test_vec_get_method`, `test_map_method_syntax`, `test_str_method_syntax`).
+
+### Changed
+- **Manifest enables `mode = "strict"`** (`owl.toml` `[security]`): kioto's externs are the PAL and runtime bridges (`pal_*`, `rt_*`), allowlisted with `externs = ["rt_*", "pal_*"]` and `extern_libs = ["c"]`. mire is trusted at the `macros` tier (`deps = { mire = "macros" }`) so `assert!`/`dbg!` auto-scope into kioto's tests/code. `meta.toml` bumped to 2.4.5 with `language = "mire avenys v3.24.24"`.
+
+## [2.4.4] — 2026-08-01 (parent/child namespace refactor)
+
+### Changed
+
+- **All core modules adopt the `mire` parent/child namespace pattern**: a parent
+  function groups variant functions inside (`strings::from::i64`, `proc::run::output`).
+  Internal calls to sibling child functions require the full module path
+  (e.g. `fs::path::name(path)` inside `path::ext`).
+- `strings::from::bool` now takes `:bool` (was `:i64`), matching `mire::str` semantics.
+- `env::get` renamed to `env::var`.
+- `fs`: path ops grouped under `path::` (`join`/`dir`/`name`/`ext`), handles under
+  `root::`/`dir::`/`file::` (`file::open::read`, `file::read`, `dir::next`, ...).
+- `async`: channels grouped under `channel::`, task helpers under `task::`.
+- `proc`: launching variants under `run::` (`create`/`spawn`/`output`/`shell`),
+  streams under `stream::` (`input`/`output`/`error`).
+- `time`: `now_ms`/`now_ns` become `now::ms`/`now::ns`.
+- `net`: sockets under `socket::`, listeners under `listener::`.
+- `crypto::sign::ed25519`: grouped into `secret::` (`new`/`public`/`sign`/`close`)
+  and `public::` (`verify`/`close`).
+- `log` no longer dereferences `&str` parameters (`"[INFO] " + msg`).
+- `README.md` tables and `tests/pal_v4_smoke.mire` updated to the new names.
+
+## [2.4.4+fixes] — 2026-08-01 (implementation hardening)
+
+### Fixed
+
+- **`fs::read` memory safety**: `pal_fs_read_file` returned a raw `malloc` buffer
+  that the runtime cannot free (leak) and could return string literals (dangling
+  risk on free). Added `rt_fs_read_bytes` bridge in `runtime/helpers.c` that
+  reads through `rt_read_bytes` and copies into runtime-managed storage;
+  `fs::read` now returns an owned `str` (was `&str`).
+- **`math::complex::div`**: division by zero on the denominator now returns
+  `zero()` instead of `inf`/`nan`.
+- **`cli::parse`**: replaced builtin `len(*raw)` with `vec::len(raw)` (builtin
+  `len` returns 1 on vectors, silently truncating args) and fixed the `--flag`
+  slice to use `len - 2` instead of the full string length.
+
+### Added
+
+- `tests/pal_v4_smoke.mire`: `test_fs_read_managed`, `test_complex_div_zero`,
+  `test_cli_parse_flags`.
+
+
+## [2.4.3] — 2026-08-01 (collections migrated to mire::vec / mire::map)
+
+### Removed
+
+- **`core/lists` and `core/dicts` modules deleted**. kioto no longer manages
+  syntax/types for collections — that belongs to the `mire` compiler stdlib.
+  Consumers migrate to `mire::vec` (push/get/set/len/index/contains/sort/...) and
+  `mire::map` (get/set/has/keys/values/remove/merge/...). `code/mod.mire` no longer
+  exports them and `owl.toml` drops the `lists`/`dicts` `[exports]` entries.
+
+### Changed
+
+- `core/cli/mod.mire` now depends on `mire::vec` (`vec::get::str`, `vec::len`).
+- `core/crypto/encode/{hex,base64}.mire`, `core/crypto/hash/{sha256,sha512}.mire`,
+  and `core/crypto/random/secure.mire` migrated from `rt_lists_*`/`lists::*` to
+  `mire::vec` operations (`vec::push::i64`, `vec::get::i64`, `vec::len`).
+- `tests/pal_v4_smoke.mire` updated to exercise `mire::vec`/`mire::map` directly.
+- `owl.toml` gains `[dependencies] mire = { path = "../mire" }`.
+- README rewritten to document the real kioto surface (fs/env/proc/async/mem/
+  crypto/ed25519 handle APIs) and to point collections at `mire::vec`/`mire::map`.
+
+## [2.4.2] — 2026-07-31 (async Task + proc.shell)
+
+### Added
+
+- **`core/async/mod.mire`**: `Task` struct with `ready()`, `value()`, `spawn()`,
+  `wait()` — async task/future pattern and process spawn via PAL.
+- **`core/proc/mod.mire`**: `shell(cmd)` — captures command output via PAL-based
+  `proc_shell` with managed memory.
+
+## [2.4.1] — 2026-07-28 (PAL v4 surface cleanup)
+
+### Changed
+
+- Consolidated `strings` into one module using the nested namespace pattern used by `mire/core/str`.
+- Removed obsolete v3/TLS/network, terminal, GPU, CPU-counter, shell, and tagged-string module surfaces that had no current PAL implementation.
+- Updated filesystem, process, time, and networking documentation to describe real PAL v4 handles and operations.
+- Replaced the legacy `rt_lists_set_i64` declaration with the current `rt_list_set_i64` runtime symbol.
+- Replaced the removed legacy tests with PAL v4 integration smoke tests and added
+  `scripts/verify.sh` for repeatable module, entrypoint, and test checks.
+
+## [2.4.0] — 2026-07-27 (PAL v4 ABI & Kioto proc/fs Fixes)
+
+### Fixed
+
+- **PAL slot table recycling**: `pal_core_reserve` now uses `in_use` flag for the
+  free list (no more generation wraparound ABA bugs). `pal_core_release` clears
+  `in_use` without resetting `generation`.
+- **`pal_core_validate(slot, generation, type)`** — new canonical handle validity
+  check wired up in all 30+ dispatch functions. Detects stale/released handles.
+- **`pal_dir_next` ABI mismatch fixed** (memory corruption): C returns 259-byte
+  struct by value (needs hidden pointer on x86-64 SysV). Added `pal_dir_next_into`
+  and `pal_dir_next_name` helpers. Updated Kioto `fs.mod.mire` extern to use
+  `pal_dir_next_name(dir, out_buf, cap)`.
+- **`proc.spawn` no longer uses shell**: now builds proper `argv` via
+  `rt_build_argv(cmd, args)` and uses `pal_proc_create` + `pal_proc_wait`.
+  Returns exit code `i64` directly. No `system()` call.
+- **`proc.wait` fixed**: uses `pal_proc_wait(handle)` (handle-based) instead of
+  the broken `pal_proc_wait_pid(handle)` (was passing PAL handle as raw PID).
+- **`pal_proc_create ABI mismatch fixed**: Kioto declared `argv :&str` (single
+  `const char *`) but C expects `const char **`. Added `rt_build_argv` runtime
+  helper to marshal `vec[str]` → `char **argv` with NULL sentinel.
+- **Kioto `fs.mod.mire`**: replaced broken builtins `concat(a,b)` and
+  `substr(s,i,n)` with `rt_string_concat` and `rt_strings_substr`.
+- **MIR lowerer protection**: added `"concat"` and `"substr"` to `builtin_names`
+  in `lower/mod.rs` to prevent shadowing by `lists.concat` when `load kioto`
+  imports all modules.
+- **Dead code**: removed unused `g_proc_buf[65536]` and dead `pal_slot_t *s` in
+  `pal_dispatch.c`.
+- **Test fixes**: `pal_proc_spawn_wait_exit_code` → `pal_proc_spawn_exit_code`
+  (simplified, tests blocking spawn directly).
+
+### Changed
+
+- Kioto minimum Avenys version: v3.x compatible
+
 ## [2.3.2] — 2026-07-18
 
 ### Changed
@@ -261,8 +439,6 @@ namespace resolution system and eliminates inconsistent naming.
 > **Re-versioned (2026-07-03):** Old 3.x tags mapped to semver:
 > - 3.11.12 → 1.0.0 (base)
 > - 3.11.13 → 1.1.0 (SDL3 module)
-
-## 1.1.6 — 2026-07-07
 
 ### Changed
 - **`thread::spawn` / `thread::join`**: `core/async/mod.mire` now uses the new
