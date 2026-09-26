@@ -1,45 +1,47 @@
 [project]
 name = "kioto"
-version = "2.4.7"
-description = "Standard library for Mire"
-entry = "code/mod.mire"
+version = "3.0.0"
+description = "Kioto is the Avenys/mire standard library"
+entry = "src/mod.mr"
 
 [build]
 compiler = "mire"
 profile = "debug"
 opt-level = 0
+artifact = "shared"
+runtime = "minimal"
+target = "x86_64-unknown-linux-gnu"
+panic = "abort"
+incremental = true
+debug-info = true
 
 [paths]
-sources = "."
+sources = "src"
 tests = "tests"
 output = "bin"
 cache = "bin/.cache"
 
 [dependencies]
-mire = { path = "../mire" }
+mire = { path = "~/.owl/libs/mire" }
+kioto = { path = "." }
 
-# Strict security mode. kioto's own externs are PAL (`pal_*`) and runtime
-# helpers (`rt_*`); mire's library macros (`assert!`/`dbg!`) are allowlisted
-# and mire is trusted at the "Macros" tier so its `[macros]` auto-scope into
-# kioto tests/code under strict mode.
 [security]
 mode = "strict"
-externs = ["rt_*", "pal_*"]
-extern_libs = ["c"]
-macros = ["assert", "dbg"]
-deps = { mire = "macros" }
+externs = ["pal_*", "rt_list_*", "rt_lists_*", "rt_vecs_*", "rt_dict*", "rt_map*", "rt_string*", "rt_i64_to_string", "rt_f64_to_string", "rt_bool_to_string", "rt_managed_*"]
+extern-libs = ["c"]
+macros = ["assert", "assert_eq", "assert_ne", "dbg", "trace_i64"]
 
 [exports]
-strings = "core/strings"
-time    = "core/time"
-fs      = "core/fs"
-env     = "core/env"
-proc    = "core/proc"
-async   = "core/async"
-mem     = "core/mem"
-cpu     = "core/cpu"
-math    = "core/math"
-net     = "core/net"
-log     = "core/log"
-cli     = "core/cli"
-crypto  = "core/crypto"
+strings = "modules/strings"
+time    = "modules/time"
+fs      = "modules/fs"
+env     = "modules/env"
+proc    = "modules/proc"
+async   = "modules/async"
+mem     = "modules/mem"
+cpu     = "modules/cpu"
+math    = "modules/math"
+net     = "modules/net"
+log     = "modules/log"
+cli     = "modules/cli"
+crypto  = "modules/crypto"

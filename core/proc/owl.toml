@@ -1,6 +1,0 @@
-[project]
-name = "proc"
-entry = "mod.mire"
-
-[exports]
-spawn = "spawn.mire"

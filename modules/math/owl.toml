@@ -1,0 +1,22 @@
+[project]
+name = "math"
+entry = "mod.mr"
+
+# [exports] maps a namespace segment to a submodule entry point, nothing else.
+# The root helpers (abs, trunc, sum, ...) are plain pub fn in mod.mr and are
+# reached through the package entry, so they must NOT be listed here. crypto
+# and strings set the same precedent.
+[exports]
+consts     = "consts/mod.mr"
+seq        = "seq/mod.mr"
+int        = "int/mod.mr"
+float      = "float/mod.mr"
+sum        = "sum/mod.mr"
+stats      = "stats/mod.mr"
+complex    = "complex/mod.mr"
+decimal    = "decimal/mod.mr"
+random     = "random/mod.mr"
+power      = "power/mod.mr"
+trig       = "trig/mod.mr"
+hyperbolic = "hyperbolic/mod.mr"
+special    = "special/mod.mr"

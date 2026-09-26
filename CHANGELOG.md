@@ -1,5 +1,221 @@
 # kioto changelog
 
+## [3.0.0] — in development
+
+The library is being rebuilt in place. The 2.x `core/` tree, the `compat-v2`
+and `minimal-runtime` feature flags, and the `.mire` extension are all gone;
+sources are now `modules/**/*.mr` behind a single `src/mod.mr` entry point.
+
+### Changed
+- **Layout reset** — the 2.x `core/` tree is replaced by `modules/`, one
+  directory per module, each with its own `owl.toml` and `mod.mr`. `src/mod.mr`
+  is the package entry and is the file that makes the library visible to a
+  consumer, so a broken export or an unresolvable path fails inside the package
+  instead of surfacing as a missing function in someone else's build.
+- **All 12 non-math modules ported** from 2.x: `strings`, `time`, `fs`, `env`,
+  `proc`, `async`, `mem`, `cpu`, `net`, `log`, `cli`, `crypto`.
+- **Comments are English and `//` only** — `/! !/` is no longer accepted.
+- **README is being refilled module by module**, each entry landing in the same
+  commit as the real code for that module, rather than being written ahead of
+  the implementation.
+
+### Added — math, rebuilt without `rt_math_*`
+- **Quick tier, 14 symbols** — `abs sign min max clamp floor ceil round trunc
+  sum avg product minlist maxlist`, all computed in Mire. There is no
+  `rt_math_*` extern and no `math.c` in the link, so the module works in a
+  `runtime = "none"` build.
+- **`math::consts`, 12 constants** — `pi tau e phi golden sqrt2 sqrt3 sqrt5
+  ln2 ln10 log2e epsilon`, as the shortest decimal that round-trips to the
+  correctly-rounded double. The tests assert the raw IEEE-754 bit patterns
+  rather than a printed value, so a dropped digit fails instead of quietly
+  shipping a slightly wrong constant.
+- **`math::seq`, 6 functions** — `range between step`, ported from the v2
+  externs `rt_math_range_i64` / `_between_` / `_step_`, plus `repeat take drop`
+  which are new. All in Mire, no extern.
+  The port keeps the half-open convention and the direction implied by the
+  arguments, so `between(6 2)` counts *down* to `[6 5 4 3]` and
+  `step(10 0 -1)` yields ten elements. A negative stride is a supported
+  behaviour, not a degenerate input: the loop bound flips to `> end` so the
+  walk terminates. Only a zero stride is empty.
+  v2 could no longer be executed to compare against, because its C
+  implementation has been removed from the runtime along with the rest of
+  `rt_math_*`. The expected values were instead taken from a standalone
+  transcript of the deleted C, compiled and run, and the two agree on all 19
+  cases: 5 `range`, 6 `between` and 8 `step`. This matters because v2's own
+  tests only ever counted upwards, so a port that refused negative strides
+  would have passed everything v2 could throw at it while dropping documented
+  behaviour. `tests/math/seq` folds those 19 transcripts into 13 cases, several
+  of which assert more than one.
+
+### Fixed
+- **`trunc` ignored the sign below one** — the `|x| < 1` fast path returned
+  `x`, so `trunc(-0.75)` came back as `-0.75`. It now returns zero for either
+  sign. `floor`, `ceil` and `round` are all built on `trunc` and inherited the
+  same wrong answer for every negative fraction.
+- **`[exports]` in `modules/math/owl.toml`** listed the fourteen root helpers as
+  exports, which is not what the table means: it maps a namespace segment to a
+  submodule entry point, as `crypto` and `strings` already show. That mistake
+  also declared `sum` twice, once as `mod.mr` and once as `sum/mod.mr`.
+
+### Known gaps
+- The list reductions take `vec[i64]` and return `f64`, because the standard
+  library has no f64 element support at all (`vec::get` exists only for `i64`
+  and `str`). This matches 2.x, where `sum_i64`, `mean`, `minlist` and `maxlist`
+  were i64-based and only `fsum` and `prod` were genuinely f64. Restoring the
+  f64 collections means teaching `mire::vec` about f64 first.
+- `math::int`, `float`, `sum`, `stats`, `complex`, `decimal`, `random`,
+  `power`, `trig`, `hyperbolic` and `special` are declared in the manifest and
+  still to be written.
+- **`cons` is currently not readable through a dotted path**, from a consumer or
+  from the declaring module itself, so the constants ship as `pub fn` and
+  module-internal limits have to be written as literals.
+- **This package is a library** (`artifact = "shared"`), which until the
+  compiler and owl both forced a test build to be an executable meant `owl test`
+  reported every file `ok` without running a single assertion. Both sides now
+  override the published artifact for a test build, and `mire test tests` and
+  `owl test` agree.
+
+## [2.5.1] — 2026-09-26 (proc::run submodule compatibility)
+
+### Added
+- **proc::run submodule** — Added compatibility layer `proc::run::{create, spawn, output, output_cwd, last_exit, read_line}` mirroring the previous flat API, so existing code using `proc::run::output` etc. continues to work.
+
+### Fixed
+- **Test suite compatibility** — Restored `proc::run::output`/`proc::run::spawn`/`proc::run::output_cwd`/`proc::run::last_exit`/`proc::run::read_line` used by kioto tests.
+
+## [2.5.2] — 2026-09-26 (compat shim + feature flags)
+
+### Added
+- **Feature flags** in `meta.toml`:
+  - `compat-v2` — enables `core/compat` shim re-exporting legacy flat API (`proc_run_output`, etc.).
+  - `minimal-runtime` — disables heavy deps (libsodium, openssl) for tiny binaries.
+- **Compatibility shim** `core/compat.mire` re-exports legacy flat proc API (`proc_run_output`, `proc_run_spawn`, …) and stubs for crypto.
+- **Root module** `kioto/mod.mire` loads core modules and conditionally includes compat/minimal features.
+
+### Changed
+- `meta.toml` now declares `[features]` section.
+- `core/compat.mire` added (guarded by `compat-v2`).
+- `kioto/mod.mire` added as public entry point with conditional feature loading.
+
+## [2.5.0] — 2026-09-22 (UDP loopback, crypto simplification, PAL socket constants fix)
+
+### Added
+- **UDP loopback support** — Kioto exposes connected UDP sockets and UDP
+  listener datagrams through the PAL, while TCP retains its stream/listener
+  accept model.
+- **RFC 4648 validation** — Base64 decoding now rejects non-4-byte inputs,
+  misplaced padding and data after terminal padding.
+- **libsodium-backed crypto runtime** — `crypto::hash::sha256` and
+  `crypto::hash::sha512` now call the runtime's libsodium binding instead of
+  maintaining duplicate hash rounds in Mire. Ed25519 and secure random remain
+  PAL-backed and therefore use the same native crypto boundary.
+- **Crypto integration tests** — NIST SHA-256/SHA-512 vectors, Ed25519
+  round-trip plus tampered-message rejection, and secure-random shape checks.
+- **File-based crypto APIs** — `crypto::hash::sha256_file`/`sha512_file`,
+  `crypto::encode::base64::file`, and `crypto::sign::ed25519::verify_file` /
+  `pubkey_raw` now hash/sign/verify files directly through the runtime's
+  binary-safe readers instead of loading them as text.
+- **`fs::permission(path, mode)`** — applies an octal mode string through the
+  new `pal_file_chmod` PAL capability.
+
+### Changed
+- **Crypto simplification** — `crypto` module no longer maintains duplicate
+  SHA-256/SHA-512 implementations; delegates to libsodium via PAL.
+- **PAL socket constants fix** — `PAL_SOCKET_TCP`/`PAL_SOCKET_UDP` constants
+  moved to `_externs.mire` as `pub const` and accessed via `_externs::` prefix
+  in `core/net/mod.mire`, resolving compiler visibility issues in nested
+  functions.
+- **Math library redesign** — `math` module now exposes 80+ functions directly
+  under `math::` following POSIX/IEEE 754 naming conventions:
+  - Constants: `pi`, `e`, `tau`, `inf`, `neg_inf`, `nan`, `epsilon`
+  - Number-theoretic: `comb`, `factorial`, `gcd`, `isqrt`, `lcm`, `perm`, `abs`, `min`, `max`
+  - Float manipulation: `ceil`, `floor`, `trunc`, `fabs`, `fmod`, `remainder`, `fma`, `copysign`, `frexp`, `ldexp`, `nextafter`, `ulp`, `modf`
+  - Float classification: `isfinite`, `isinf`, `isnan`, `isclose`
+  - Power/exponential/log: `sqrt`, `cbrt`, `pow`, `exp`, `exp2`, `expm1`, `log`, `log2`, `log10`, `log1p`
+  - Trigonometric: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`
+  - Hyperbolic: `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`
+  - Angular: `degrees`, `radians`
+  - Special: `erf`, `erfc`, `gamma`, `lgamma`
+  - Summation: `hypot`, `fsum`, `prod`, `sumprod`, `dist`
+
+### Removed
+- `core/math/basic.mire` (merged into new submodules)
+- `core/math/stats.mire` (merged into new submodules)
+- Duplicate crypto implementations (SHA-256/SHA-512 now delegate to libsodium)
+
+### Tests
+- All 37 kioto tests pass (including UDP loopback/TCP rejection, crypto
+  vectors, fs removal, channel round-trip and CLI parsing)
+- Full ecosystem verification: MireData, stress, token, sdl, owl tool all build and test green
+- UDP `connect` on port 0 is accepted (connectionless); the test now documents
+  that only TCP performs a real handshake and rejects.
+
+## [2.4.9] — 2026-09-17 (math modularization + full stdlib overhaul)
+
+### Added
+- **UDP loopback support** — Kioto exposes connected UDP sockets and UDP
+  listener datagrams through the PAL, while TCP retains its stream/listener
+  accept model.
+- **RFC 4648 validation** — Base64 decoding now rejects non-4-byte inputs,
+  misplaced padding and data after terminal padding.
+- **libsodium-backed crypto runtime** — `crypto::hash::sha256` and
+  `crypto::hash::sha512` now call the runtime's libsodium binding instead of
+  maintaining duplicate hash rounds in Mire. Ed25519 and secure random remain
+  PAL-backed and therefore use the same native crypto boundary.
+- **Crypto integration tests** — NIST SHA-256/SHA-512 vectors, Ed25519
+  round-trip plus tampered-message rejection, and secure-random shape checks.
+- **File-based crypto APIs** — `crypto::hash::sha256_file`/`sha512_file`,
+  `crypto::encode::base64::file`, and `crypto::sign::ed25519::verify_file` /
+  `pubkey_raw` now hash/sign/verify files directly through the runtime's
+  binary-safe readers instead of loading them as text.
+- **`fs::permission(path, mode)`** — applies an octal mode string through the
+  new `pal_file_chmod` PAL capability.
+- **Complete math library redesign** — `math` module now exposes 80+ functions directly under `math::` following POSIX/IEEE 754 naming conventions:
+  - Constants: `pi`, `e`, `tau`, `inf`, `neg_inf`, `nan`, `epsilon`
+  - Number-theoretic: `comb`, `factorial`, `gcd`, `isqrt`, `lcm`, `perm`, `abs`, `min`, `max`
+  - Float manipulation: `ceil`, `floor`, `trunc`, `fabs`, `fmod`, `remainder`, `fma`, `copysign`, `frexp`, `ldexp`, `nextafter`, `ulp`, `modf`
+  - Float classification: `isfinite`, `isinf`, `isnan`, `isclose`
+  - Power/exponential/log: `sqrt`, `cbrt`, `pow`, `exp`, `exp2`, `expm1`, `log`, `log2`, `log10`, `log1p`
+  - Trigonometric: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`
+  - Hyperbolic: `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`
+  - Angular: `degrees`, `radians`
+  - Special: `erf`, `erfc`, `gamma`, `lgamma`
+  - Summation: `hypot`, `fsum`, `prod`, `sumprod`, `dist`
+- **New C runtime functions** in `math.c`/`runtime.h` for all above operations
+- **Internal modularization** — `math` now uses private submodules (`constants`, `number_theoretic`, `float`, `float_manip`, `power`, `sum`, `angle`, `trig`, `hyperbolic`, `special`) loaded by the orchestrator `mod.mire`
+- **Unified `_externs.mire` pattern** applied to all major modules: `strings`, `fs`, `proc`, `net`, `async`, `cli`, `crypto/hash`, `math` — single source of truth for C extern declarations
+
+### Changed
+- `math::basic` and `math::stats` removed — their functions now accessible directly as `math::abs`, `math::sin`, `math::mean`, etc.
+- `math` module structure: `complex`, `decimal`, `random` remain as structured submodules; all other functions flattened
+- All core modules (`strings`, `fs`, `proc`, `net`, `async`, `cli`, `crypto/hash`, `math`) now declare `module` name and use `_externs.mire` for C FFI declarations
+- Module exports updated in `core/math/owl.toml` to reflect new internal structure
+- Build manifest updated to Avenys 4.x's `artifact = "shared"` spelling; Mire
+  macro allowlisting expanded; integration test added for Mire's assertion macros
+
+### Removed
+- `core/math/basic.mire` (merged into new submodules)
+- `core/math/stats.mire` (merged into new submodules)
+
+### Tests
+- All 37 kioto tests pass (including UDP loopback/TCP rejection, crypto
+  vectors, fs removal, channel round-trip and CLI parsing)
+- Full ecosystem verification: MireData, stress, token, sdl, owl tool all build and test green
+- UDP `connect` on port 0 is accepted (connectionless); the test now documents
+  that only TCP performs a real handshake and rejects.
+
+## [2.4.8] — 2026-08-24 (fs::is_file + module declarations)
+
+### Added
+- **`fs::is_file(path)`** — checks whether a path is a regular file via the
+  new `pal_fs_is_file` PAL primitive. Returns `bool`.
+
+### Fixed
+- All 9 submodules (`config`, `drawing`, `files`, `input`, `textops`,
+  `themes`, `tiling`, `tree`, `ttf`) now declare their `module` name as the
+  first line. Without this, constants like `DISPLAY_BLOCK`, `ACCENT_W`,
+  `USE_TTF` were invisible to the compiler within their own module.
+
 ## [2.4.7] — 2026-08-06 (capability-based fs removal: remove / remove_all)
 
 ### Added
@@ -661,3 +877,4 @@ net::http::serve_file(fd, "index.html")
   construction requires C PAL functions for binary headers and XOR masking.
 - **`rt_vec_get_str` spacing:** `rt_vec_get_str(v(i+1))` is parsed as function call.
   Use `rt_vec_get_str(v, i+1)` or `rt_vec_get_str(v(i+1))` (no space before `(`).
+
