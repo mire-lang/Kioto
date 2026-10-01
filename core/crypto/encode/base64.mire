@@ -3,6 +3,8 @@ module base64
 load mire::vec
 load kioto::strings
 
+extern fn rt_crypto_base64_file: (path :&str) :str lib "c"
+
 fn ALPHABET: () :str {
     return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 }
@@ -43,6 +45,7 @@ pub fn decode: (s :&str) :vec[i64] {
     set len = strings::len(s)
     set result = [] :vec[i64] mut
     if len == 0 { return result }
+    if len % 4 != 0 { return result }
     set i = 0 :i64 mut
     while i < len {
         set v0 = char_value(strings::substr(s i 1))
@@ -52,6 +55,8 @@ pub fn decode: (s :&str) :vec[i64] {
         if v0 < 0 || v1 < 0 { return [] :vec[i64] }
         set pad2 = decode_is_pad(s, i + 2, len)
         set pad3 = decode_is_pad(s, i + 3, len)
+        if pad2 && !pad3 { return [] :vec[i64] }
+        if (pad2 || pad3) && i + 4 < len { return [] :vec[i64] }
         if !pad2 && v2 < 0 { return [] :vec[i64] }
         if !pad3 && v3 < 0 { return [] :vec[i64] }
         set triple = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3
@@ -67,4 +72,11 @@ fn decode_is_pad: (s :&str, pos :i64, slen :i64) :bool {
     if pos >= slen { return true }
     set ch = strings::substr(s pos 1)
     return ch == "="
+}
+
+/! Base64-encodes the raw contents of a file (binary-safe). Used to turn a
+   signature or public-key file into the text form expected by the Ed25519
+   verification bindings. Returns "" when the file cannot be read. !/
+pub fn encode_file: (path :&str) :str {
+    return rt_crypto_base64_file(path)
 }
