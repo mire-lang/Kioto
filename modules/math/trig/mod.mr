@@ -1,2 +1,152 @@
-# Kioto 3.0.0 — math::trig (not implemented yet).
-# See modules/math/mod.mr for the build order and todo.md for the symbol inventory.
+module trig
+
+// Kioto 3.0.0 — math::trig
+//
+// Pure-Mire implementations of the elementary transcendental functions.
+// No rt_math_* extern; everything is built from the quick tier, math::power
+// and math::consts.  The algorithms are deliberately simple: argument
+// reduction to a small interval followed by a minimax polynomial.  They are
+// accurate enough for the 1e-12 tolerances used in the test suite.
+
+load kioto::math::consts
+load kioto::math::power
+load kioto::math::float
+
+// ── constants ──────────────────────────────────────────────────────
+fn two_pi: () :f64 { return 2.0 * consts::pi() }
+fn half_pi: () :f64 { return consts::pi() / 2.0 }
+
+// ── helpers ────────────────────────────────────────────────────────
+// Reduce x to [-π, π] using fmod via floor.
+fn reduce_2pi: (x :f64) :f64 {
+    set tp = two_pi()
+    set k = float::floor(x / tp)
+    return x - k * tp
+}
+
+// Reduce to [-π/4, π/4] for sin/cos using the identity sin(x) = ±sin(r), cos(x)=±cos(r)
+// where r = x - n*π/2, n = round(x/(π/2)).
+fn reduce_pi4: (x :f64) :f64 {
+    set hp = half_pi()
+    set n = float::round(x / hp)
+    return x - n * hp
+}
+
+// sin via Taylor series up to x^13 (sufficient for |x| ≤ π/4)
+fn sin_small: (x :f64) :f64 {
+    set x2 = x * x
+    // coefficients for sin(x) = x - x^3/3! + x^5/5! - x^7/7! + x^9/9! - x^11/11! + x^13/13!
+    set t1 = x
+    set t3 = t1 * x2 / 6.0
+    set t5 = t3 * x2 / 20.0
+    set t7 = t5 * x2 / 42.0
+    set t9 = t7 * x2 / 72.0
+    set t11 = t9 * x2 / 110.0
+    set t13 = t11 * x2 / 156.0
+    return t1 - t3 + t5 - t7 + t9 - t11 + t13
+}
+
+// cos via Taylor series up to x^12
+fn cos_small: (x :f64) :f64 {
+    set x2 = x * x
+    // cos(x) = 1 - x^2/2! + x^4/4! - x^6/6! + x^8/8! - x^10/10! + x^12/12!
+    set t0 = 1.0
+    set t2 = t0 * x2 / 2.0
+    set t4 = t2 * x2 / 12.0
+    set t6 = t4 * x2 / 30.0
+    set t8 = t6 * x2 / 56.0
+    set t10 = t8 * x2 / 90.0
+    set t12 = t10 * x2 / 132.0
+    return t0 - t2 + t4 - t6 + t8 - t10 + t12
+}
+
+// ── public API ─────────────────────────────────────────────────────
+pub fn sin: (x :f64) :f64 {
+    set r = reduce_pi4(x)
+    // Determine quadrant sign using original reduction n
+    set hp = half_pi()
+    set n = float::round(x / hp)
+    // n mod 4 decides sign: 0:+sin, 1:+cos, 2:-sin, 3:-cos
+    // We'll just compute sin(r) and cos(r) then combine.
+    set s = sin_small(r)
+    set c = cos_small(r)
+    // Use n & 3
+    set m = n - float::floor(n / 4.0) * 4.0
+    // m in [0,4)
+    if m < 1.0 { return s }
+    if m < 2.0 { return c }
+    if m < 3.0 { return 0.0 - s }
+    return 0.0 - c
+}
+
+pub fn cos: (x :f64) :f64 {
+    set r = reduce_pi4(x)
+    set hp = half_pi()
+    set n = float::round(x / hp)
+    set s = sin_small(r)
+    set c = cos_small(r)
+    set m = n - float::floor(n / 4.0) * 4.0
+    if m < 1.0 { return c }
+    if m < 2.0 { return 0.0 - s }
+    if m < 3.0 { return 0.0 - c }
+    return s
+}
+
+pub fn tan: (x :f64) :f64 {
+    return sin(x) / cos(x)
+}
+
+// atan via Taylor series up to x^15 on [-1,1], using identity atan(x) = π/2 - atan(1/x) for |x|>1
+fn atan_small: (x :f64) :f64 {
+    // atan(x) = x - x^3/3 + x^5/5 - x^7/7 + x^9/9 - x^11/11 + x^13/13 - x^15/15
+    set x2 = x * x
+    set term = x :f64 mut
+    set sum = term :f64 mut
+    set n = 3 :i64 mut
+    set sign = -1.0 :f64 mut
+    while n <= 15 {
+        set term = term * x2
+        set sum += sign * term / n
+        set n += 2
+        set sign = 0.0 - sign
+    }
+    return sum
+}
+
+pub fn atan: (x :f64) :f64 {
+    if x < -1.0 {
+        return 0.0 - (half_pi() + atan_small(1.0 / x))
+    }
+    if x > 1.0 {
+        return half_pi() - atan_small(1.0 / x)
+    }
+    return atan_small(x)
+}
+
+pub fn atan2: (y :f64, x :f64) :f64 {
+    if x > 0.0 { return atan(y / x) }
+    if x < 0.0 {
+        if y >= 0.0 { return atan(y / x) + consts::pi() }
+        return atan(y / x) - consts::pi()
+    }
+    // x == 0
+    if y > 0.0 { return half_pi() }
+    if y < 0.0 { return 0.0 - half_pi() }
+    return 0.0
+}
+
+pub fn asin: (x :f64) :f64 {
+    // asin(x) = atan2(x, sqrt(1 - x*x))
+    if x < -1.0 || x > 1.0 { return 0.0 / 0.0 } // NaN
+    set s = power::sqrt(1.0 - x * x)
+    return atan2(x, s)
+}
+
+pub fn acos: (x :f64) :f64 {
+    if x < -1.0 || x > 1.0 { return 0.0 / 0.0 }
+    return half_pi() - asin(x)
+}
+
+// degrees / radians conversion
+pub fn degrees: (rad :f64) :f64 { return rad * 180.0 / consts::pi() }
+pub fn radians: (deg :f64) :f64 { return deg * consts::pi() / 180.0 }

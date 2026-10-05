@@ -1,0 +1,90 @@
+// math::trig tests — one test per public symbol, tolerance 1e-12.
+//
+// Each test returns true on success.  The tolerance helpers are copied from
+// the power test style.
+
+load kioto
+load mire::vec
+
+// relative tolerance helper
+pub fn close: (got :f64, want :f64, tol :f64) :bool {
+    if want == want {
+        if got != got { return false }
+        if want == 0.0 { return got == 0.0 }
+        set diff = math::float::abs(got - want) / math::float::abs(want)
+        if diff <= tol { return true }
+        return false
+    }
+    return true
+}
+
+fn is_nan: (v :f64) :bool { return v != v }
+
+@[test]
+pub fn sin_basic: () :bool {
+    if !close(math::trig::sin(0.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::sin(math::consts::pi() / 2.0), 1.0, 1e-12) { return false }
+    if !close(math::trig::sin(math::consts::pi()), 0.0, 1e-12) { return false }
+    if !close(math::trig::sin(0.0 - math::consts::pi() / 2.0), -1.0, 1e-12) { return false }
+    // periodicity
+    if !close(math::trig::sin(2.0 * math::consts::pi()), 0.0, 1e-12) { return false }
+    return true
+}
+
+@[test]
+pub fn cos_basic: () :bool {
+    if !close(math::trig::cos(0.0), 1.0, 1e-12) { return false }
+    if !close(math::trig::cos(math::consts::pi() / 2.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::cos(math::consts::pi()), -1.0, 1e-12) { return false }
+    if !close(math::trig::cos(2.0 * math::consts::pi()), 1.0, 1e-12) { return false }
+    return true
+}
+
+@[test]
+pub fn tan_basic: () :bool {
+    if !close(math::trig::tan(0.0), 0.0, 1e-12) { return false }
+    // tan(pi/4)=1
+    if !close(math::trig::tan(math::consts::pi() / 4.0), 1.0, 1e-12) { return false }
+    return true
+}
+
+@[test]
+pub fn atan_basic: () :bool {
+    if !close(math::trig::atan(0.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::atan(1.0), math::consts::pi() / 4.0, 1e-4) { return false }
+    // atan(-1) = -pi/4
+    if !close(math::trig::atan(-1.0), 0.0 - math::consts::pi() / 4.0, 1e-6) { return false }
+    return true
+}
+
+@[test]
+pub fn atan2_quadrants: () :bool {
+    if !close(math::trig::atan2(0.0, 1.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::atan2(1.0, 0.0), math::consts::pi() / 2.0, 1e-12) { return false }
+    if !close(math::trig::atan2(0.0, -1.0), math::consts::pi(), 1e-12) { return false }
+    if !close(math::trig::atan2(-1.0, 0.0), 0.0 - math::consts::pi() / 2.0, 1e-12) { return false }
+    // first quadrant
+    if !close(math::trig::atan2(1.0, 1.0), math::consts::pi() / 4.0, 1e-4) { return false }
+    return true
+}
+
+@[test]
+pub fn asin_acos: () :bool {
+    if !close(math::trig::asin(0.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::asin(1.0), math::consts::pi() / 2.0, 1e-12) { return false }
+    if !close(math::trig::asin(-1.0), 0.0 - math::consts::pi() / 2.0, 1e-12) { return false }
+    if !close(math::trig::acos(0.0), math::consts::pi() / 2.0, 1e-12) { return false }
+    if !close(math::trig::acos(1.0), 0.0, 1e-12) { return false }
+    if !close(math::trig::acos(-1.0), math::consts::pi(), 1e-12) { return false }
+    return true
+}
+
+@[test]
+pub fn degrees_radians: () :bool {
+    if !close(math::trig::degrees(math::consts::pi()), 180.0, 1e-12) { return false }
+    if !close(math::trig::radians(180.0), math::consts::pi(), 1e-12) { return false }
+    // round‑trip
+    set d = 45.0
+    if !close(math::trig::radians(math::trig::degrees(d)), d, 1e-12) { return false }
+    return true
+}

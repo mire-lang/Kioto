@@ -33,6 +33,7 @@ load kioto::math::random
 load kioto::math::sum
 load kioto::math::stats
 load kioto::math::power
+load kioto::math::trig
 
 // No cons are declared in this tier, and none should be added. A cons is not
 // readable through a dotted path, and reachable-import selection drops a
