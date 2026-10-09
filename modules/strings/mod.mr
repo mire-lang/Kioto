@@ -39,6 +39,7 @@ pub fn repeat: (s :&str, n :i64) :str { return rt_strings_repeat(s, n) }
 // A byte, not a codepoint: for anything beyond ASCII the caller has to walk
 // the leading bytes of a UTF-8 sequence to find the character boundaries.
 pub fn char_at: (s :&str, index :i64) :i64 { return rt_strings_char_at(s, index) }
+pub fn from_byte: (byte_value :i64) :str { return rt_str_from_byte(byte_value) }
 // The two strings joined, as a new value. This is also the + operator on two
 // strings, spelled as a function so it can be passed around.
 pub fn concat: (left :&str, right :&str) :str { return rt_string_concat(left, right) }
