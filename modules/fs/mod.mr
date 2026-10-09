@@ -72,17 +72,17 @@ pub fn read: (path :&str) :str {
 // not know the write did not happen, so check it. There is no append variant
 // at this level; open a file and seek to the end for that.
 pub fn write: (path :&str, data :&str) :bool {
-    set root = pal_root_open(".")
+    set root = rt_pal_root_open(".")
     if root <= 0 { return false }
-    set f = pal_file_open(root, path, 14 :i32)
+    set f = rt_pal_file_open(root, path, 14 :i32)
     if f <= 0 {
-        use pal_root_close(root)
+        use rt_pal_root_close(root)
         return false
     }
     set data_len = strings::len(data)
-    set written = pal_file_write(f, data, data_len)
-    use pal_file_close(f)
-    use pal_root_close(root)
+    set written = rt_pal_file_write(f, data, data_len)
+    use rt_pal_file_close(f)
+    use rt_pal_root_close(root)
     return written == data_len
 }
 
@@ -102,12 +102,12 @@ pub fn drop: (path :&str) :bool {
 
 // Private: recursively remove everything under `rel` inside `root`.
 fn fs_remove_recursive: (root :i64, rel :&str) :bool {
-    set d = pal_dir_open(root, rel)
+    set d = rt_pal_dir_open(root, rel)
     if d <= 0 {
-        return pal_root_remove(root, rel)
+        return rt_pal_root_remove(root, rel)
     }
     set entry = strings::repeat("\0" 256) :str mut
-    set n = pal_dir_next_name(d, entry, 256) :i64 mut
+    set n = rt_pal_dir_next_name(d, entry, 256) :i64 mut
     while n > 0 {
         set name = rt_strings_substr(entry, 0, n)
         if name != "." {
@@ -115,15 +115,15 @@ fn fs_remove_recursive: (root :i64, rel :&str) :bool {
                 set child = fs::path::join(rel, name)
                 set ok = fs_remove_recursive(root, child)
                 if !ok {
-                    pal_dir_close(d)
+                    rt_pal_dir_close(d)
                     return false
                 }
             }
         }
-        set n = pal_dir_next_name(d, entry, 256)
+        set n = rt_pal_dir_next_name(d, entry, 256)
     }
-    pal_dir_close(d)
-    return pal_root_remove(root, rel)
+    rt_pal_dir_close(d)
+    return rt_pal_root_remove(root, rel)
 }
 
 // Remove a single entry (file, symlink, or empty directory). A symlink is
@@ -131,12 +131,12 @@ fn fs_remove_recursive: (root :i64, rel :&str) :bool {
 // Returns false and leaves fs::last_error() set to the PAL error code
 // (PAL_ERR_NOT_EMPTY for a non-empty directory).
 pub fn remove: (path :&str) :bool {
-    set root = pal_root_open(fs::path::dir(path))
+    set root = rt_pal_root_open(fs::path::dir(path))
     if root <= 0 {
         return false
     }
-    set ok = pal_root_remove(root, fs::path::name(path))
-    pal_root_close(root)
+    set ok = rt_pal_root_remove(root, fs::path::name(path))
+    rt_pal_root_close(root)
     return ok
 }
 
@@ -144,12 +144,12 @@ pub fn remove: (path :&str) :bool {
 // trailing symlinks are never followed (the sandbox rejects them); a symlink
 // inside the tree is deleted without entering its target.
 pub fn remove_all: (path :&str) :bool {
-    set root = pal_root_open(fs::path::dir(path))
+    set root = rt_pal_root_open(fs::path::dir(path))
     if root <= 0 {
         return false
     }
     set ok = fs_remove_recursive(root, fs::path::name(path))
-    pal_root_close(root)
+    rt_pal_root_close(root)
     return ok
 }
 
@@ -164,11 +164,11 @@ pub fn last_error: () :i64 {
 // matters. An unreadable directory yields an empty vector rather than an
 // error; check fs::exists first if the difference matters.
 pub fn list: (path :&str) :vec[str] {
-    set root = pal_root_open(".")
-    set d = pal_dir_open(root, path)
+    set root = rt_pal_root_open(".")
+    set d = rt_pal_dir_open(root, path)
     set result = [] :vec[str] mut
     set entry = strings::repeat("\0" 256) :str mut
-    set n = pal_dir_next_name(d, entry, 256) :i64 mut
+    set n = rt_pal_dir_next_name(d, entry, 256) :i64 mut
     while n > 0 {
         set name = rt_strings_substr(entry, 0, n)
         // "." and ".." are how a directory navigates to itself and to its
@@ -180,10 +180,10 @@ pub fn list: (path :&str) :vec[str] {
                 set result = rt_vecs_push_ptr(result, name)
             }
         }
-        set n = pal_dir_next_name(d, entry, 256)
+        set n = rt_pal_dir_next_name(d, entry, 256)
     }
-    pal_dir_close(d)
-    pal_root_close(root)
+    rt_pal_dir_close(d)
+    rt_pal_root_close(root)
     return result
 }
 
@@ -267,7 +267,7 @@ pub fn dir: () {
 
     // Opens a directory under a root, for iteration with fs::dir::next.
     pub fn open: (root :Root, path :&str) :Dir {
-        set h = pal_dir_open(root.handle, path)
+        set h = rt_pal_dir_open(root.handle, path)
         return (Dir handle: h)
     }
 
@@ -278,12 +278,12 @@ pub fn dir: () {
     // past the end of the buffer, and the same rule as fs::file::read applies
     // here. False once the directory is exhausted.
     pub fn next: (d :Dir, entry :&mut str, max_len :i64) :bool {
-        return pal_dir_next_name(d.handle, entry, max_len) > 0
+        return rt_pal_dir_next_name(d.handle, entry, max_len) > 0
     }
 
     // Releases the directory handle. Exhausting the iterator does not do it.
     pub fn close: (d :Dir) {
-        use pal_dir_close(d.handle)
+        use rt_pal_dir_close(d.handle)
     }
 }
 
@@ -293,13 +293,13 @@ pub fn root: () {
     // inside it, which is what keeps a path built from user input inside the
     // sandbox.
     pub fn open: (path :&str) :Root {
-        set h = pal_root_open(path)
+        set h = rt_pal_root_open(path)
         return (Root handle: h)
     }
 
     // Releases the root handle.
     pub fn close: (root :Root) {
-        use pal_root_close(root.handle)
+        use rt_pal_root_close(root.handle)
     }
 }
 
@@ -317,27 +317,27 @@ pub fn file: () {
         // Opens for reading, positioned at the start. The flags are the
         // PAL_OPEN_* constants, combined with + when more than one applies.
         pub fn read: (root :Root, path :&str) :File {
-            set h = pal_file_open(root.handle, path, 1 :i32)
+            set h = rt_pal_file_open(root.handle, path, 1 :i32)
             return (File handle: h)
         }
 
         // Opens for writing without truncating, so an existing longer file keeps
         // its tail and whatever you write past the old end.
         pub fn write: (root :Root, path :&str) :File {
-            set h = pal_file_open(root.handle, path, 2 :i32)
+            set h = rt_pal_file_open(root.handle, path, 2 :i32)
             return (File handle: h)
         }
 
         // Opens for writing, creating the file if it is missing and leaving it
         // alone if it is not.
         pub fn create: (root :Root, path :&str) :File {
-            set h = pal_file_open(root.handle, path, 7 :i32)
+            set h = rt_pal_file_open(root.handle, path, 7 :i32)
             return (File handle: h)
         }
 
         // Opens for writing and empties the file first.
         pub fn truncate: (root :Root, path :&str) :File {
-            set h = pal_file_open(root.handle, path, 15 :i32)
+            set h = rt_pal_file_open(root.handle, path, 15 :i32)
             return (File handle: h)
         }
     }
@@ -345,29 +345,29 @@ pub fn file: () {
     // Reads up to max_len bytes into buf and returns how many arrived. buf
     // must have that much room, for the same reason as fs::dir::next.
     pub fn read: (file :File, buf :&mut str, max_len :i64) :i64 {
-        return pal_file_read(file.handle, buf, max_len)
+        return rt_pal_file_read(file.handle, buf, max_len)
     }
 
     // Writes the whole string and returns the byte count written.
     pub fn write: (file :File, data :&str) :i64 {
-        return pal_file_write(file.handle, data, len(data))
+        return rt_pal_file_write(file.handle, data, len(data))
     }
 
     // Moves the position and returns the new absolute offset. whence is one
     // of the PAL_SEEK_* constants.
     pub fn seek: (file :File, offset :i64, whence :i32) :i64 {
-        return pal_file_seek(file.handle, offset, whence)
+        return rt_pal_file_seek(file.handle, offset, whence)
     }
 
     // Current size in bytes. For a file open for writing this is the size now,
     // which is not the size after the last write is flushed.
     pub fn size: (file :File) :i64 {
-        return pal_file_size(file.handle)
+        return rt_pal_file_size(file.handle)
     }
 
     // Closes the file and releases the descriptor.
     pub fn close: (file :File) {
-        use pal_file_close(file.handle)
+        use rt_pal_file_close(file.handle)
     }
 }
 
