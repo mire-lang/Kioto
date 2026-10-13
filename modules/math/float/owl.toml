@@ -1,3 +1,6 @@
 [project]
 name = "float"
 entry = "mod.mr"
+
+[exports]
+mod = "mod.mr"

@@ -32,6 +32,9 @@ extern fn pal_last_error: () :i64 lib "c"
 // borrowed pointers. See helpers.c for the full explanation.
 extern fn pal_sbx_set_root: (root :&str) lib "c"
 extern fn rt_sbx_get_root: () :str lib "c"
+// Authorises the tool's own home as a second writable subtree. See fs::owl.
+extern fn rt_sbx_set_tool_home: (path :&str) lib "c"
+extern fn rt_sbx_get_tool_home: () :str lib "c"
 extern fn pal_sbx_set_unsafe: (depth :i64) :bool lib "c"
 extern fn pal_sbx_unsafe_depth: () :i64 lib "c"
 extern fn pal_sbx_permit: (path :&str) :bool lib "c"

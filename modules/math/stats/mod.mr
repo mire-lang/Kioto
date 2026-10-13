@@ -163,7 +163,7 @@ pub fn percentile: (list :&vec[i64], p :f64) :f64 {
     // below it that lands.
     set pos = 0.0 :f64 mut
     set pos = p / 100.0 * (n - 1)
-    set floor_pos = math::float::floor(pos) :f64
+    set floor_pos = math::float::floor_f64(pos) :f64
     set low = rt_f64_to_i64(floor_pos) :i64
     set high = low + 1 :i64
     if high >= n { return vec::get::i64(sorted, low) * 1.0 }

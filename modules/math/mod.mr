@@ -97,25 +97,23 @@ pub fn clamp: (x :f64, lo :f64, hi :f64) :f64 {
 }
 
 // Drop the fractional part, rounding toward zero.
-pub fn trunc: (x :f64) :f64 {
+pub fn trunc_f64: (x :f64) :f64 {
     if !integral_magnitude(x) {
         return x
     }
     set neg = x < 0.0
     set a = if neg { 0.0 - x } else { x } :f64 mut
     if a < 1.0 {
-        // |x| below 1 has no integer part, so the answer is zero for either
-        // sign. Returning x here would hand back -0.75 unchanged.
         return 0.0
     }
     set t = 0.0 :f64 mut
     set p = 2251799813685248.0 :f64 mut
     while p >= 1.0 {
         if a >= p {
-            set a -= p
-            set t += p
+            set a = a - p
+            set t = t + p
         }
-        set p *= 0.5
+        set p = p * 0.5
     }
     if neg {
         return 0.0 - t
@@ -124,8 +122,8 @@ pub fn trunc: (x :f64) :f64 {
 }
 
 // Largest integer not greater than x.
-pub fn floor: (x :f64) :f64 {
-    set t = trunc(x)
+pub fn floor_f64: (x :f64) :f64 {
+    set t = trunc_f64(x)
     if t == x {
         return t
     }
@@ -136,8 +134,8 @@ pub fn floor: (x :f64) :f64 {
 }
 
 // Smallest integer not less than x.
-pub fn ceil: (x :f64) :f64 {
-    set t = trunc(x)
+pub fn ceil_f64: (x :f64) :f64 {
+    set t = trunc_f64(x)
     if t == x {
         return t
     }
@@ -148,8 +146,8 @@ pub fn ceil: (x :f64) :f64 {
 }
 
 // Nearest integer, halves away from zero (round(2.5) = 3, round(-2.5) = -3).
-pub fn round: (x :f64) :f64 {
-    set t = trunc(x)
+pub fn round_f64: (x :f64) :f64 {
+    set t = trunc_f64(x)
     if t == x {
         return t
     }

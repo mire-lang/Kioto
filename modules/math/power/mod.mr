@@ -387,7 +387,7 @@ pub fn exp: (x :f64) :f64 {
     if x < -745.1332191019411 {
         return 0.0
     }
-    set k = truncToI64(math::float::round(x * log2e())) :i64 mut
+    set k = truncToI64(math::float::round_f64(x * log2e())) :i64 mut
     set r = (x - intToF64(k) * ln2Hi()) - intToF64(k) * ln2Lo()
     return scale2(expSmall(r), k)
 }
@@ -417,7 +417,7 @@ pub fn exp2: (x :f64) :f64 {
     if x < -1075.0 {
         return 0.0
     }
-    set k = truncToI64(math::float::floor(x))
+    set k = truncToI64(math::float::floor_f64(x))
     set r = x - intToF64(k)
     // r*ln2 through the split, and in the same order as exp: the product
     // r*ln2Hi alone is short by r*ln2Lo, which for r near 1 is 1.9e-10 and

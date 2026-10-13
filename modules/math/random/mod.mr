@@ -74,7 +74,7 @@ pub fn seed: (s :i64) {
 fn mix: (v :i64) :i64 {
     set x = v & 2147483647 :i64 mut
     set x = ((x * 1103515245) + 12345) & 2147483647
-    set x = x ^ (x >> 13)
+    set x = (x ^ (x >> 13)) :i64
     return x & 2147483647
 }
 

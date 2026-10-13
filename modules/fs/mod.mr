@@ -1,5 +1,7 @@
 module fs
+load mire::vec
 load kioto::strings
+load kioto::env
 load kioto::fs::_externs
 
 // A directory opened as a capability: every path in a file or directory
@@ -395,6 +397,333 @@ pub fn file: () {
 // None of these are "turn security off" switches in the abstract: each is a
 // statement about what this program is trusted to do, and each shows up at
 // the call site in the source.
+
+// ── fs::owl — the package manager's own home ────────────────────────
+//
+// Everything above in this module is a general filesystem. This namespace is
+// the one exception the sandbox makes, and it exists for a tool that keeps a
+// store which has to outlive any single project: the package registry's
+// installed libraries, and the registry cache. A project tree is the wrong home
+// for that. It cannot be shared between checkouts, and copying every dependency
+// per project defeats the point of having a registry.
+//
+// The grant is narrow by construction. It covers exactly ONE directory, the
+// tool's own ~/.owl, and it is not folded into the sandbox root: widening the
+// root would hand every program in every project write access to the whole home
+// directory. Call authorise() once at start-up to opt in; a program that never
+// calls it gets no capability at all, which is the default for all of them.
+//
+// It also grants no execution. Authorising a directory says nothing about
+// running what is inside it: the sandbox constrains paths, and what constrains
+// execution is the process gate, not this. A file an attacker drops in the
+// store is inert data — the installer only activates a package whose contents
+// match the registry hash, so planting a file cannot get it selected.
+//
+// Prefer read-only operations for anything that is not an install. Reads
+// dominate what a tool does with its home, and keeping the write surface small
+// is what makes the exception defensible.
+//
+// NOTE ON STYLE. The functions below call the PAL externs directly rather than
+// the fs:: wrappers above. That is deliberate and matches the existing
+// fs::sandbox and fs::unrestricted sections: a reference to fs::x from inside
+// this module does not resolve at link time, so going through the wrappers would
+// not link. See the cross-module symbol resolution issue.
+pub fn owl: () {
+    // The tool's home: $HOME/.owl.
+    //
+    // Deliberately the .owl DIRECTORY and not the user's home directory. The
+    // sandbox grant covers exactly this path, so returning $HOME here would both
+    // misreport where the store is and invite an authorisation of the whole home
+    // directory — which is the one thing this exception must never do.
+    //
+    // $HOME is the only input and it is read at call time, from the caller's own
+    // environment rather than from anything a project file can set.
+    pub fn home: () :str {
+        set base = strings::copy(env::var("HOME")) :str mut
+        return use! fs::path::join(base ".owl") :str
+    }
+
+    // Authorises exactly one directory as writable in addition to the project
+    // root. Idempotent, and it must be called before any store operation:
+    // afterwards the operations here are ordinary PAL calls, with no separate
+    // check to forget.
+    pub fn authorise: (path :&str) {
+        use rt_sbx_set_tool_home(path)
+    }
+
+    // Where installed packages live, multi-version:
+    //   <home>/usr/libs/<name>@<version>/
+    //
+    // Versions are directories rather than an in-place mutation so that two
+    // projects pinned to different versions of the same library coexist, and so
+    // that an install is atomic: it either produces the whole directory or
+    // leaves nothing behind.
+    pub fn store: () :str {
+        set h = use! fs::owl::home() :str mut
+        set base = use! fs::path::join(h "usr") :str mut
+        return use! fs::path::join(base "libs") :str
+    }
+
+    // <store>/<name>@<version>
+    pub fn pkg_dir: (name :&str, version :&str) :str {
+        set id = strings::concat(strings::concat(name "@") version) :str mut
+        set root = use! fs::owl::store() :str mut
+        return use! fs::path::join(root id) :str
+    }
+
+    // Creates a directory and every missing parent. The single-level fs::mkdir
+    // cannot do this, and an install that creates <home>/usr/libs/<pkg>@<v>
+    // would fail on a first run when nothing exists yet.
+    //
+    // Level by level on purpose. Creating the deepest path in one call and
+    // hoping the parents appear is how a store ends up half-built, and a
+    // half-built package directory looks installed to every later check.
+    //
+    // Returns false only when a level could not be created and is not already a
+    // directory.
+    pub fn mkdirs: (path :&str) :bool {
+        if strings::len(path) == 0 { return false :bool }
+        set n = strings::len(path) :i64 mut
+        set seg_start = 0 :i64 mut
+        set i = 0 :i64 mut
+        while i <= n {
+            /! i == n closes the final segment: one extra turn so a path with no
+                trailing separator still creates its last level. !/
+            set at_end = i == n :bool mut
+            set c = 0 :i64 mut
+            if !at_end {
+                set c = strings::char_at(path i) :i64 mut
+            }
+            if at_end || c == 47 {
+                /! The leading "/" produces an empty segment at i == 0. That is
+                    the filesystem root, which always exists, so it is skipped
+                    rather than treated as an error — returning here would abort
+                    before any level was attempted. !/
+                if i > seg_start {
+                    /! Build each level from the ORIGINAL path, not from a
+                        previously concatenated string: appending onto a growing
+                        :str does not reproduce the prefix, and a level that is
+                        never attempted is a directory that silently does not
+                        exist. !/
+                    set seg = strings::substr(path seg_start i - seg_start) :str mut
+                    set lvl = use! fs::owl::build_level(path seg_start i seg) :str mut
+                    if !use! fs::owl::ensure_level(lvl) { return false :bool }
+                }
+                set seg_start = i + 1 :i64 mut
+            }
+            if at_end { break }
+            set i += 1
+        }
+        return true :bool
+    }
+
+    // Creates one level, tolerating the case where it is already there.
+    //
+    // "Already exists" is not detectable with a stat here: under the sandbox,
+    // exists() reports false for any path outside the authorised roots even when
+    // it is perfectly real, so a level like /home looks missing. Asking mkdir and
+    // accepting its refusal is what makes this correct — mkdir returns false for
+    // both "created" and "already exists" and reports neither, so the single
+    // unambiguous failure is a path that exists as a FILE, which can never become
+    // a directory.
+    pub fn ensure_level: (lvl :&str) :bool {
+        if pal_fs_mkdir(lvl) { return true :bool }
+        if pal_fs_is_file(lvl) { return false :bool }
+        return true :bool
+    }
+
+    // "/a/b/c" up to and including the segment at [seg_start, seg_end). Copies
+    // the prefix out of the original path so nothing depends on an earlier concat.
+    pub fn build_level: (path :&str, seg_start :i64, seg_end :i64, seg :&str) :str {
+        if seg_start == 0 {
+            /! Absolute, first level: "/" + seg. !/
+            return strings::concat(strings::substr(path 0 1) seg) :str
+        }
+        /! Later levels: substr(path, 0, seg_start) already ends with the previous
+            separator, so the segment just appends. !/
+        set prefix = strings::substr(path 0 seg_start) :str mut
+        return strings::concat(prefix seg) :str
+    }
+
+    // Writes a small file inside an already-created directory. Used for the
+    // manifests and the registry cache; package payloads go through the
+    // installer, which has to roll back on failure.
+    pub fn put: (path :&str, data :&str) :bool {
+        set root = rt_pal_root_open(".") :i64 mut
+        if root <= 0 { return false :bool }
+        set f = rt_pal_file_open(root, path, 14 :i32) :i64 mut
+        if f <= 0 {
+            use rt_pal_root_close(root)
+            return false :bool
+        }
+        set len = strings::len(data) :i64 mut
+        set written = rt_pal_file_write(f, data, len) :i64 mut
+        use rt_pal_file_close(f)
+        use rt_pal_root_close(root)
+        return written == len :bool
+    }
+
+    // Whether a specific version is present and COMPLETE.
+    //
+    // Presence of the directory is not enough, and this is the one place where
+    // that distinction is worth the extra stat. An interrupted install leaves a
+    // directory behind; treating it as installed is how a half-copied
+    // dependency gets discovered at link time instead of at install time. The
+    // marker file is written last, so its presence means every payload file
+    // landed first.
+    pub fn is_installed: (name :&str, version :&str) :bool {
+        set dir = use! fs::owl::pkg_dir(name version) :str mut
+        if !pal_fs_exists(dir) { return false :bool }
+        if pal_fs_is_file(dir) { return false :bool }
+        set marker = use! fs::path::join(dir ".owl-installed") :str mut
+        return pal_fs_exists(marker) :bool
+    }
+
+    // Marks a package directory complete.
+    //
+    // Call this only after every file is in place. It is the flag that makes the
+    // install visible, so writing it early advertises a package that is not
+    // there yet — and nothing else in the system will go looking for a
+    // half-populated directory.
+    pub fn mark_installed: (name :&str, version :&str) :bool {
+        set dir = use! fs::owl::pkg_dir(name version) :str mut
+        /! Create the directory here rather than assuming the installer did. The
+            marker is the thing that makes an install visible, and writing it into
+            a directory that does not exist has to fail loudly rather than leave
+            the caller believing a package is installed. !/
+        if !use! fs::owl::mkdirs(dir) { return false :bool }
+        set marker = use! fs::path::join(dir ".owl-installed") :str mut
+        set id = strings::concat(strings::concat(name "@") version) :str mut
+        set body = strings::concat(id "\n") :str mut
+        return use! fs::owl::put(marker body) :bool
+    }
+
+    // Removes a partial install, so the next attempt starts clean instead of
+    // layering onto a broken directory. Called when an install fails after some
+    // files were already written.
+    pub fn discard: (name :&str, version :&str) :bool {
+        set dir = use! fs::owl::pkg_dir(name version) :str mut
+        return fs::remove_all(dir) :bool
+    }
+
+    // Every installed package as "<name>@<version>". Order is whatever the
+    // filesystem returned, so callers that care must sort; readdir order is not
+    // a contract.
+    pub fn installed: () :vec[str] {
+        set root_dir = use! fs::owl::store() :str mut
+        set result = [] :vec[str] mut
+        if !pal_fs_exists(root_dir) { return result :vec[str] }
+        if pal_fs_is_file(root_dir) { return result :vec[str] }
+        set entries = fs::list(root_dir) :vec[str] mut
+        set i = 0 :i64 mut
+        while i < vec::len(entries) {
+            set e = vec::get::str(entries i) :str mut
+            set dir = use! fs::path::join(root_dir e) :str mut
+            set marker = use! fs::path::join(dir ".owl-installed") :str mut
+            if pal_fs_exists(marker) {
+                set result = rt_vecs_push_ptr(result e) :vec[str] mut
+            }
+            set i += 1
+        }
+        return result :vec[str]
+    }
+
+    // The installed versions of one package, unsorted.
+    pub fn versions: (name :&str) :vec[str] {
+        set prefix = strings::concat(name "@") :str mut
+        set plen = strings::len(prefix) :i64 mut
+        set result = [] :vec[str] mut
+        set all = use! fs::owl::installed() :vec[str] mut
+        set i = 0 :i64 mut
+        while i < vec::len(all) {
+            set e = vec::get::str(all i) :str mut
+            if strings::starts::with(e prefix) {
+                set v = strings::substr(e plen strings::len(e) - plen) :str mut
+                set result = rt_vecs_push_ptr(result v) :vec[str] mut
+            }
+            set i += 1
+        }
+        return result :vec[str]
+    }
+
+    // The highest installed version, or the empty string when the package is
+    // absent.
+    //
+    // This is what a dependency without a pinned version resolves to, and it is
+    // a LOOKUP rather than a stored alias on purpose: "latest" has to track what
+    // is on disk, not be a directory that can drift away from it.
+    pub fn latest_installed: (name :&str) :str {
+        set vs = use! fs::owl::versions(name) :vec[str] mut
+        set best = "" :str mut
+        set i = 0 :i64 mut
+        while i < vec::len(vs) {
+            set v = strings::copy(vec::get::str(vs i)) :str mut
+            if use! fs::owl::ordering::gt(v best) { set best = v :str mut }
+            set i += 1
+        }
+        return best :str
+    }
+
+    // Semantic version ordering, so 1.10.0 sorts above 1.9.0.
+    //
+    // A plain string compare gets that backwards, and it is the kind of bug
+    // that only shows up after a release, hence a numeric comparison per
+    // component rather than strcmp.
+    pub fn ordering: () {
+        pub fn gt: (a :&str, b :&str) :bool {
+            if b == "" { return true :bool }
+            set ai = 0 :i64 mut
+            set bi = 0 :i64 mut
+            while true {
+                set an = use! fs::owl::ordering::num_at(a ai) :i64 mut
+                set bn = use! fs::owl::ordering::num_at(b bi) :i64 mut
+                if an > bn { return true :bool }
+                if an < bn { return false :bool }
+                set ai = use! fs::owl::ordering::skip(a ai) :i64 mut
+                set bi = use! fs::owl::ordering::skip(b bi) :i64 mut
+                if ai >= strings::len(a) && bi >= strings::len(b) { return false :bool }
+            }
+            return false :bool
+        }
+
+        // The numeric value of the component starting at `from`.
+        //
+        // A pre-release or build suffix stops the scan, so 1.2.0-rc1 orders as
+        // 1.2.0 rather than as something enormous. Leading zeros and a missing
+        // component both read as 0, which matches how a resolver treats an
+        // unspecified version.
+        pub fn num_at: (v :&str, from :i64) :i64 {
+            set n = strings::len(v) :i64 mut
+            set i = from :i64 mut
+            set acc = 0 :i64 mut
+            set digits = 0 :i64 mut
+            while i < n {
+                set c = strings::char_at(v i) :i64 mut
+                if c < 48 || c > 57 { break }
+                set acc = acc * 10 + (c - 48) :i64 mut
+                set digits += 1
+                set i += 1
+            }
+            if digits == 0 { return 0 :i64 }
+            return acc :i64
+        }
+
+        // Just past the component starting at `from`, and over the separator.
+        pub fn skip: (v :&str, from :i64) :i64 {
+            set n = strings::len(v) :i64 mut
+            set i = from :i64 mut
+            while i < n {
+                set c = strings::char_at(v i) :i64 mut
+                if c < 48 || c > 57 {
+                    set i += 1
+                    break
+                }
+                set i += 1
+            }
+            return i :i64
+        }
+    }
+}
 
 pub fn sandbox: () {
     // The root the policy is currently enforcing, or the empty string when it

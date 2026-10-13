@@ -88,3 +88,88 @@ pub fn degrees_radians: () :bool {
     if !close(math::trig::radians(math::trig::degrees(d)), d, 1e-12) { return false }
     return true
 }
+// atan's argument reduction is the whole ballgame: the Maclaurin series it is
+// built on only converges fast below 1/sqrt(3), and the reduction is what
+// guarantees the argument arrives there. These pin the boundary cases, which is
+// where a reduction that is off by a comparison operator fails.
+
+@[test]
+pub fn atan_reduction_covers_the_boundary: () :bool {
+    set k = 0.57735026918962576451 :f64 mut
+    /! Either side of the limit: a reduction that gets the comparison wrong is
+        correct everywhere except exactly here. !/
+    if !close(math::trig::atan(k - 1e-9), ref_atan(k - 1e-9), 1e-6) { return false }
+    if !close(math::trig::atan(k), ref_atan(k), 1e-6) { return false }
+    if !close(math::trig::atan(k + 1e-9), ref_atan(k + 1e-9), 1e-6) { return false }
+    if !close(math::trig::atan(0.9999999), ref_atan(0.9999999), 1e-6) { return false }
+    if !close(math::trig::atan(1.0), ref_atan(1.0), 1e-6) { return false }
+    if !close(math::trig::atan(1.0000001), ref_atan(1.0000001), 1e-6) { return false }
+    return true
+}
+
+@[test]
+pub fn atan_is_odd: () :bool {
+    if !close(math::trig::atan(0.001), 0.0 - math::trig::atan(0.0 - 0.001), 1e-12) { return false }
+    if !close(math::trig::atan(0.5), 0.0 - math::trig::atan(0.0 - 0.5), 1e-12) { return false }
+    if !close(math::trig::atan(1.0), 0.0 - math::trig::atan(0.0 - 1.0), 1e-12) { return false }
+    if !close(math::trig::atan(2.0), 0.0 - math::trig::atan(0.0 - 2.0), 1e-12) { return false }
+    if !close(math::trig::atan(100.0), 0.0 - math::trig::atan(0.0 - 100.0), 1e-12) { return false }
+    return true
+}
+
+@[test]
+pub fn atan_stays_finite_for_extreme_inputs: () :bool {
+    // The half-angle reduction squares x, which overflows to infinity past
+    // ~1e154. atan has to keep answering pi/2 there instead of returning a NaN
+    // from infinity/infinity.
+    if !atan_large_is_pi_over_2(1e100) { return false }
+    if !atan_large_is_pi_over_2(1e150) { return false }
+    if !atan_large_is_pi_over_2(1e300) { return false }
+    return true
+}
+
+@[test]
+pub fn atan_tends_to_zero_at_zero: () :bool {
+    if !close(math::trig::atan(0.0), 0.0, 1e-15) { return false }
+    if !close(math::trig::atan(1e-8), 1e-8, 1e-12) { return false }
+    return true
+}
+
+fn atan_large_is_pi_over_2: (x :f64) :bool {
+    set got = math::trig::atan(x) :f64 mut
+    /! NaN is the only value that does not equal itself; x*x overflowing to
+        infinity is how a naive half-angle reduction produces one. !/
+    if got != got { return false }
+    return close(got, math::consts::pi() / 2.0, 1e-9) :bool
+}
+
+// A reference atan to check the implementation against. Deliberately a different
+// algorithm: the half-angle identity iterated a fixed number of times until the
+// argument is small, then the series. Agreement between two unrelated methods is
+// evidence; agreement of the implementation with itself is not.
+fn ref_atan: (x :f64) :f64 {
+    if x < 0.0 { return 0.0 - ref_atan(0.0 - x) }
+    set v = x :f64 mut
+    set scale = 1.0 :f64 mut
+    set steps = 0 :i64 mut
+    /! Reduce until the argument is small, then apply the series and undo the
+        doubling. This is a different sequence of operations from the
+        implementation under test, which is what makes agreement informative. !/
+    while v > 0.1 && steps < 60 {
+        set v = v / (1.0 + math::power::sqrt(1.0 + v * v))
+        set scale = scale * 2.0
+        set steps += 1
+    }
+    set v2 = v * v
+    set term = v :f64 mut
+    set sum = term :f64 mut
+    set n = 3 :i64 mut
+    set sign = -1.0 :f64 mut
+    while n <= 101 {
+        set term = term * v2
+        set sum += sign * term / n
+        set n += 2
+        set sign = 0.0 - sign
+    }
+    return sum * scale
+}

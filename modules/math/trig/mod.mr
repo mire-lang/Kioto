@@ -10,7 +10,44 @@ module trig
 
 load kioto::math::consts
 load kioto::math::power
-load kioto::math::float
+
+// ── local float helpers (avoid namespace resolution issues) ───
+fn trunc_impl: (x :f64) :f64 {
+    if x != x { return x } // NaN
+    if x < 1.0 && x > -1.0 { return 0.0 }
+    set neg = x < 0.0
+    set a = if neg { 0.0 - x } else { x } :f64 mut
+    if a < 1.0 { return 0.0 }
+    set t = 0.0 :f64 mut
+    set p = 2251799813685248.0 :f64 mut
+    while p >= 1.0 {
+        if a >= p {
+            set a = a - p
+            set t = t + p
+        }
+        set p = p * 0.5
+    }
+    if neg { return 0.0 - t }
+    return t
+}
+
+fn floor_impl: (x :f64) :f64 {
+    if x != x { return x } // NaN
+    set t = trunc_impl(x)
+    if t == x { return t }
+    if x < 0.0 { return t - 1.0 }
+    return t
+}
+
+fn round_impl: (x :f64) :f64 {
+    if x != x { return x } // NaN
+    set t = trunc_impl(x)
+    if t == x { return t }
+    set d = x - t
+    if d >= 0.5 { return t + 1.0 }
+    if d <= 0.0 - 0.5 { return t - 1.0 }
+    return t
+}
 
 // ── constants ──────────────────────────────────────────────────────
 fn two_pi: () :f64 { return 2.0 * consts::pi() }
@@ -20,7 +57,7 @@ fn half_pi: () :f64 { return consts::pi() / 2.0 }
 // Reduce x to [-π, π] using fmod via floor.
 fn reduce_2pi: (x :f64) :f64 {
     set tp = two_pi()
-    set k = float::floor(x / tp)
+    set k = floor_impl(x / tp)
     return x - k * tp
 }
 
@@ -28,7 +65,7 @@ fn reduce_2pi: (x :f64) :f64 {
 // where r = x - n*π/2, n = round(x/(π/2)).
 fn reduce_pi4: (x :f64) :f64 {
     set hp = half_pi()
-    set n = float::round(x / hp)
+    set n = round_impl(x / hp)
     return x - n * hp
 }
 
@@ -65,13 +102,13 @@ pub fn sin: (x :f64) :f64 {
     set r = reduce_pi4(x)
     // Determine quadrant sign using original reduction n
     set hp = half_pi()
-    set n = float::round(x / hp)
+    set n = round_impl(x / hp)
     // n mod 4 decides sign: 0:+sin, 1:+cos, 2:-sin, 3:-cos
     // We'll just compute sin(r) and cos(r) then combine.
     set s = sin_small(r)
     set c = cos_small(r)
     // Use n & 3
-    set m = n - float::floor(n / 4.0) * 4.0
+    set m = n - floor_impl(n / 4.0) * 4.0
     // m in [0,4)
     if m < 1.0 { return s }
     if m < 2.0 { return c }
@@ -82,10 +119,10 @@ pub fn sin: (x :f64) :f64 {
 pub fn cos: (x :f64) :f64 {
     set r = reduce_pi4(x)
     set hp = half_pi()
-    set n = float::round(x / hp)
+    set n = round_impl(x / hp)
     set s = sin_small(r)
     set c = cos_small(r)
-    set m = n - float::floor(n / 4.0) * 4.0
+    set m = n - floor_impl(n / 4.0) * 4.0
     if m < 1.0 { return c }
     if m < 2.0 { return 0.0 - s }
     if m < 3.0 { return 0.0 - c }
@@ -97,14 +134,25 @@ pub fn tan: (x :f64) :f64 {
 }
 
 // atan via Taylor series up to x^15 on [-1,1], using identity atan(x) = π/2 - atan(1/x) for |x|>1
+// The Maclaurin series, valid and FAST only for |x| <= 1/sqrt(3).
+//
+// atan(x) = x - x^3/3 + x^5/5 - ...
+//
+// The ratio between consecutive terms is x^2, so the series converges at the rate
+// of x^2 per term: at |x| = 1/sqrt(3) that is a third per term, and at |x| = 1 it
+// is one, which does not converge at all in practice. Calling this at |x| = 1 is
+// what made atan(1.0) return 0.7543 instead of 0.7854 — fifteen terms of a
+// series that had barely started. Reduce the argument first; that is atan's job,
+// not this function's.
 fn atan_small: (x :f64) :f64 {
-    // atan(x) = x - x^3/3 + x^5/5 - x^7/7 + x^9/9 - x^11/11 + x^13/13 - x^15/15
     set x2 = x * x
     set term = x :f64 mut
     set sum = term :f64 mut
     set n = 3 :i64 mut
     set sign = -1.0 :f64 mut
-    while n <= 15 {
+    /! Nineteen terms puts x^39/39 in the tail, below 1e-7 at the worst argument
+        this is ever called with. !/
+    while n <= 19 {
         set term = term * x2
         set sum += sign * term / n
         set n += 2
@@ -113,14 +161,44 @@ fn atan_small: (x :f64) :f64 {
     return sum
 }
 
+// 1/sqrt(3), the boundary of atan_small's fast region.
+fn atan_limit: () :f64 { return 0.57735026918962576451 }
+
+// The half-angle reduction, x -> x / (1 + sqrt(1 + x^2)).
+//
+// Each application halves the argument's angle, which is what guarantees the
+// argument lands below 1/sqrt(3). Unlike the (x-1)/(x+1) shift, it also stays
+// well conditioned for very large x, because the denominator grows with x rather
+// than subtracting two nearly equal numbers.
+fn atan_half_angle: (x :f64) :f64 {
+    return x / (1.0 + power::sqrt(1.0 + x * x))
+}
+
 pub fn atan: (x :f64) :f64 {
-    if x < -1.0 {
-        return 0.0 - (half_pi() + atan_small(1.0 / x))
+    /! atan is odd, so the whole function only has to handle x >= 0. Handling the
+        sign here rather than in each branch also means 1/x can never be a
+        division by zero for the reflection below. !/
+    if x < 0.0 {
+        return 0.0 - atan(0.0 - x)
     }
-    if x > 1.0 {
-        return half_pi() - atan_small(1.0 / x)
+    set limit = atan_limit()
+    if x <= limit {
+        return atan_small(x)
     }
-    return atan_small(x)
+    if x >= 1.0 {
+        /! Large x: atan(x) = pi/2 - atan(1/x). This is the numerically good
+            direction, since 1/x is small and the series is at its fastest. The
+            x*x above would overflow to infinity for x beyond ~1e154, which is
+            why this branch comes before the half-angle one. !/
+        set t = 1.0 / x
+        if t <= limit {
+            return half_pi() - atan_small(t)
+        }
+        return half_pi() - 2.0 * atan_small(atan_half_angle(t))
+    }
+    /! limit < x < 1: one half-angle step is already past the limit, and the
+        argument is small enough that no precision is lost. !/
+    return 2.0 * atan_small(atan_half_angle(x))
 }
 
 pub fn atan2: (y :f64, x :f64) :f64 {
