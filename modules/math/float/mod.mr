@@ -395,4 +395,4 @@ pub fn fromBits: (b :i64) :f64 {
 // representable double. Written in scientific notation because that is what the
 // value is; the same number as math::consts::epsilon.
 pub fn epsilon: () :f64 { return 2.220446049250313e-16 }
-syntax error
+

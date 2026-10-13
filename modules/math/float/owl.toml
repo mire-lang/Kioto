@@ -3,4 +3,4 @@ name = "float"
 entry = "mod.mr"
 
 [exports]
-mod = "mod.mr"
+float = "mod.mr"

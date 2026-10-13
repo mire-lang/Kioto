@@ -1,3 +1,6 @@
 [project]
 name = "seq"
 entry = "mod.mr"
+
+[exports]
+mod = "mod.mr"

@@ -1,3 +1,6 @@
 [project]
 name = "int"
 entry = "mod.mr"
+
+[exports]
+mod = "mod.mr"
