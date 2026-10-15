@@ -237,7 +237,7 @@ pub fn nextFloat_fills_the_low_order_bits: () :bool {
     while i < 500 {
         set x = math::random::nextFloat()
         set scaled = x * 2147483648.0
-        if scaled == math::float::floor(scaled) { set multiples = multiples + 1 }
+        if scaled == math::floor_f64(scaled) { set multiples = multiples + 1 }
         set i = i + 1
     }
     // Landing on a multiple every single time would mean the low word is being

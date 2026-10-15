@@ -74,15 +74,15 @@ fn log10e: () :f64 { return 0.434294481903251827651 }
 
 // 2^1022 and 2^-1022, both normal, so neither of them can overflow or flush to
 // zero while scale2 is stepping down to a subnormal result.
-fn twoTo1022: () :f64 { return math::float::fromBits((1022 + 1023) << 52) }
-fn twoToNeg1022: () :f64 { return math::float::fromBits((1023 - 1022) << 52) }
+fn twoTo1022: () :f64 { return float::fromBits((1022 + 1023) << 52) }
+fn twoToNeg1022: () :f64 { return float::fromBits((1023 - 1022) << 52) }
 
 // The quiet NaN and the two infinities, built from the exponent field. A NaN
 // made by dividing zero by zero would work too, but saying it in the bit
 // pattern documents that the value is deliberate.
-fn nan: () :f64 { return math::float::fromBits(9221120237041090560) }
-fn posInf: () :f64 { return math::float::fromBits(9218868437227405312) }
-fn negInf: () :f64 { return math::float::fromBits(-4503599627370496) }
+fn nan: () :f64 { return float::fromBits(9221120237041090560) }
+fn posInf: () :f64 { return float::fromBits(9218868437227405312) }
+fn negInf: () :f64 { return float::fromBits(-4503599627370496) }
 
 // ── scaling by two ────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ fn scale2: (m :f64, k :i64) :f64 {
         set m = m * twoToNeg1022()
         set n = n + 1022
     }
-    return m * math::float::fromBits((n + 1023) << 52)
+    return m * float::fromBits((n + 1023) << 52)
 }
 
 // x = m * 2^k with m in [0.5, 1), by repeated halving. Every halving is exact,
@@ -212,7 +212,7 @@ fn truncToI64: (v :f64) :i64 {
     if v == 0.0 {
         return 0
     }
-    set bits = math::float::toBits(v) :i64 mut
+    set bits = float::toBits(v) :i64 mut
     set neg = 0 :i64 mut
     if bits < 0 {
         set neg = 1
@@ -274,7 +274,7 @@ pub fn sqrt: (x :f64) :f64 {
     if x == negInf() {
         return posInf()
     }
-    set ax = math::float::abs(x) :f64 mut
+    set ax = float::abs(x) :f64 mut
     set e = 0 :i64 mut
     while ax >= 4.0 {
         set ax = ax * 0.25
@@ -319,7 +319,7 @@ pub fn cbrt: (x :f64) :f64 {
         return x
     }
     set sign = 1.0 :f64 mut
-    set ax = math::float::abs(x) :f64 mut
+    set ax = float::abs(x) :f64 mut
     set e = 0 :i64 mut
     while ax >= 8.0 {
         set ax = ax * 0.125
@@ -387,7 +387,7 @@ pub fn exp: (x :f64) :f64 {
     if x < -745.1332191019411 {
         return 0.0
     }
-    set k = truncToI64(math::float::round_f64(x * log2e())) :i64 mut
+    set k = truncToI64(float::round_f64(x * log2e())) :i64 mut
     set r = (x - intToF64(k) * ln2Hi()) - intToF64(k) * ln2Lo()
     return scale2(expSmall(r), k)
 }
@@ -417,7 +417,7 @@ pub fn exp2: (x :f64) :f64 {
     if x < -1075.0 {
         return 0.0
     }
-    set k = truncToI64(math::float::floor_f64(x))
+    set k = truncToI64(float::floor_f64(x))
     set r = x - intToF64(k)
     // r*ln2 through the split, and in the same order as exp: the product
     // r*ln2Hi alone is short by r*ln2Lo, which for r near 1 is 1.9e-10 and
@@ -700,7 +700,7 @@ pub fn pow: (x :f64, y :f64) :f64 {
         }
         set ax = 0.0 - x
     }
-    if isWhole(y) && math::float::abs(y) < 1024.0 {
+    if isWhole(y) && float::abs(y) < 1024.0 {
         set r = intPow(ax, y)
         if sign < 0.0 {
             return 0.0 - r
@@ -718,7 +718,7 @@ fn isWhole: (y :f64) :bool {
     if y != y {
         return false
     }
-    if math::float::abs(y) > 9007199254740992.0 {
+    if float::abs(y) > 9007199254740992.0 {
         return false
     }
     return intToF64(truncToI64(y)) == y
@@ -793,12 +793,12 @@ pub fn hypot: (a :f64, b :f64) :f64 {
     if a != a || b != b {
         return nan()
     }
-    set x = math::float::abs(a)
-    set y = math::float::abs(b)
+    set x = float::abs(a)
+    set y = float::abs(b)
     if x == posInf() || y == posInf() {
         return posInf()
     }
-    set m = math::float::max(x, y)
+    set m = float::max(x, y)
     if m == 0.0 {
         return 0.0
     }

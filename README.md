@@ -4,7 +4,7 @@ The standard library for [Mire](https://github.com/mire-lang/Avenys-rust):
 text, collections, filesystem, processes, networking, crypto, logging, time and
 mathematics — 244 public functions across 13 modules.
 
-> **3.0.0 is in development.** The 2.x `core/` tree is being replaced by
+> **3.1.0 is in development.** The 2.x `core/` tree is being replaced by
 > `modules/`, and the math surface is being rebuilt in Mire itself, with no
 > `rt_math_*` externs behind it. This package documents what has actually
 > landed; [the inventory](docs/inventory.md) records what has not.

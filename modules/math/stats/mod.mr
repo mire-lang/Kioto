@@ -6,7 +6,7 @@
 //   mean median variance stddev mode minVal maxVal percentile corr covariance
 //
 // The data is vec[i64] and the answers are f64. That is the pairing the root tier
-// already established: math::avg and math::product take a vec[i64] and hand back
+// already established: list::avg and math::product take a vec[i64] and hand back
 // a double, because a mean of integers is a fraction and asking for a fraction of
 // a list of measurements is the normal case. It also keeps this module honest
 // about where its accuracy comes from. The inputs are exact, so a sum of them is
@@ -37,7 +37,15 @@ extern fn rt_math_sqrt: (value :f64) :f64 lib "c"
 // The arithmetic mean, the total over the count. An empty list has no mean, and
 // returns 0.0.
 pub fn mean: (list :&vec[i64]) :f64 {
-    return math::avg(list)
+    set n = vec::len(list)
+    if n == 0 { return 0.0 }
+    set sum = 0.0 :f64 mut
+    set i = 0 :i64 mut
+    while i < n {
+        set sum += vec::get::i64(list, i) :f64
+        set i += 1
+    }
+    return sum / n
 }
 
 // ── median ─────────────────────────────────────────────────────
@@ -134,14 +142,38 @@ pub fn mode: (list :&vec[i64]) :i64 {
 
 // The smallest observation, or 0 for an empty list.
 pub fn minVal: (list :&vec[i64]) :i64 {
-    return math::minlist(list)
+    if vec::len(list) == 0 {
+        return 0
+    }
+    set best = vec::get::i64(list, 0) :i64 mut
+    set i = 1 :i64 mut
+    while i < vec::len(list) {
+        set v = vec::get::i64(list, i)
+        if v < best {
+            set best = v
+        }
+        set i += 1
+    }
+    return best
 }
 
 // ── maxVal ─────────────────────────────────────────────────────
 
 // The largest observation, or 0 for an empty list.
 pub fn maxVal: (list :&vec[i64]) :i64 {
-    return math::maxlist(list)
+    if vec::len(list) == 0 {
+        return 0
+    }
+    set best = vec::get::i64(list, 0) :i64 mut
+    set i = 1 :i64 mut
+    while i < vec::len(list) {
+        set v = vec::get::i64(list, i)
+        if v > best {
+            set best = v
+        }
+        set i += 1
+    }
+    return best
 }
 
 // ── percentile ─────────────────────────────────────────────────
@@ -163,7 +195,7 @@ pub fn percentile: (list :&vec[i64], p :f64) :f64 {
     // below it that lands.
     set pos = 0.0 :f64 mut
     set pos = p / 100.0 * (n - 1)
-    set floor_pos = math::float::floor_f64(pos) :f64
+    set floor_pos = float::floor_f64(pos) :f64
     set low = rt_f64_to_i64(floor_pos) :i64
     set high = low + 1 :i64
     if high >= n { return vec::get::i64(sorted, low) * 1.0 }

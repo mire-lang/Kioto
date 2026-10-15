@@ -11,7 +11,7 @@ pub fn close: (got :f64, want :f64, tol :f64) :bool {
     if want == want {
         if got != got { return false }
         if want == 0.0 { return got == 0.0 }
-        set diff = math::float::abs(got - want) / math::float::abs(want)
+        set diff = math::abs(got - want) / math::abs(want)
         if diff <= tol { return true }
         return false
     }

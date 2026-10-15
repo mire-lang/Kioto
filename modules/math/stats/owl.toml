@@ -4,3 +4,13 @@ entry = "mod.mr"
 
 [exports]
 mod = "mod.mr"
+mean = "mod.mr"
+median = "mod.mr"
+variance = "mod.mr"
+stddev = "mod.mr"
+mode = "mod.mr"
+minVal = "mod.mr"
+maxVal = "mod.mr"
+percentile = "mod.mr"
+covariance = "mod.mr"
+corr = "mod.mr"

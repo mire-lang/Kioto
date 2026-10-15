@@ -4,3 +4,9 @@ entry = "mod.mr"
 
 [exports]
 mod = "mod.mr"
+range = "mod.mr"
+between = "mod.mr"
+step = "mod.mr"
+repeat = "mod.mr"
+take = "mod.mr"
+drop = "mod.mr"

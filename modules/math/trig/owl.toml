@@ -4,3 +4,12 @@ entry = "mod.mr"
 
 [exports]
 mod = "mod.mr"
+sin = "mod.mr"
+cos = "mod.mr"
+tan = "mod.mr"
+atan = "mod.mr"
+atan2 = "mod.mr"
+asin = "mod.mr"
+acos = "mod.mr"
+degrees = "mod.mr"
+radians = "mod.mr"

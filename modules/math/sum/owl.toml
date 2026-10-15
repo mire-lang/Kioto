@@ -4,3 +4,7 @@ entry = "mod.mr"
 
 [exports]
 mod = "mod.mr"
+fsum = "mod.mr"
+prod = "mod.mr"
+sumprod = "mod.mr"
+dist = "mod.mr"

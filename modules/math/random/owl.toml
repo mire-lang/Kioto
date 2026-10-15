@@ -4,3 +4,8 @@ entry = "mod.mr"
 
 [exports]
 mod = "mod.mr"
+seed = "mod.mr"
+next = "mod.mr"
+nextInt = "mod.mr"
+nextFloat = "mod.mr"
+pick = "mod.mr"

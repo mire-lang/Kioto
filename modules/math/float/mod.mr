@@ -248,21 +248,6 @@ pub fn floor_f64: (x :f64) :f64 {
     return t
 }
 
-// Smallest integer not less than x.
-pub fn ceil_f64: (x :f64) :f64 {
-    if !integral_magnitude(x) {
-        return x
-    }
-    set t = trunc_f64(x)
-    if t == x {
-        return t
-    }
-    if x > 0.0 {
-        return t + 1.0
-    }
-    return t
-}
-
 // Nearest integer, halves away from zero: round(2.5) is 3, round(-2.5) is -3.
 // This is not banker's rounding, and the difference is deliberate and
 // observable at every .5.

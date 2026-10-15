@@ -10,6 +10,7 @@ module trig
 
 load kioto::math::consts
 load kioto::math::power
+load kioto::math::float
 
 // ── local float helpers (avoid namespace resolution issues) ───
 fn trunc_impl: (x :f64) :f64 {
