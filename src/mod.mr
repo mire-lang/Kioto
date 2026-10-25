@@ -33,3 +33,20 @@ load kioto::net
 load kioto::log
 load kioto::cli
 load kioto::crypto
+
+// ── status() ──────────────────────────────────────────────────────────
+// Returns a phpinfo-style console report of the library: name, version,
+// build profile, runtime tier, exported modules, and configuration.
+// Intended for `use dasu(kioto::status())` or direct `use kioto::status()`
+// to inspect what a loaded library provides.
+pub fn status: () :str {
+    set report = "════════════════════════════════════════════════════════════════" :str mut
+    set report = report + "\nLibrary:    kioto" + "\n"
+    set report = report + "Version:    3.1.0" + "\n"
+    set report = report + "Description: Kioto is the Avenys/mire standard library" + "\n"
+    set report = report + "Runtime:    Mire / Avenys (minimal tier)" + "\n"
+    set report = report + "Exports:    strings, time, fs, env, proc, async, mem, cpu, math, net, log, cli, crypto" + "\n"
+    set report = report + "Status:     active" + "\n"
+    set report = report + "════════════════════════════════════════════════════════════════" + "\n"
+    return report
+}
