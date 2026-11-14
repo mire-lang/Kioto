@@ -1,6 +1,7 @@
 module net
 // Network PAL bindings
 load kioto::net::_externs
+load kioto::net::ws
 
 // A connected socket. Closed with net::socket::close.
 pub struct Socket {

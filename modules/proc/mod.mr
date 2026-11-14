@@ -1,4 +1,4 @@
-// Kioto 3.0.0 — proc module.
+// Kioto 3.1.0 — proc module.
 //
 // Process execution is argv-based: run::create, run::spawn, run::output and
 // run::output_cwd pass an argument vector straight to execvp, so nothing is

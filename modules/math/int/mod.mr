@@ -1,4 +1,4 @@
-// Kioto 3.0.0 - math::int.
+// Kioto 3.1.0 - math::int.
 //
 // Integer arithmetic and number-theory helpers. Every function is pure Mire
 // with no rt_* extern and no rt_math_* call, so this module links in a
