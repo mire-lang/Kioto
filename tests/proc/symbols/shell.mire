@@ -1,0 +1,71 @@
+// Per-symbol suite: kioto::proc::shell
+//
+// shell is DENIED BY DEFAULT. It requires an open unsafe scope
+// (fs::unrestricted::enter() / exit()) to run. The exit code is in
+// proc::shell_status().
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn shell_denied_by_default: () :bool {
+    // Without an unsafe scope, shell fails and returns empty string.
+    // The exit code should be -1 (denied/never-made).
+    set out = proc::shell("echo hello")
+    set status = proc::shell_status()
+    set code = fs::last_error()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/shell/denied-output", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/shell/denied-status", status, -1) { set ok = false }
+    if !use! harness::check_i64("proc/shell/denied-code", code, fs::err_permission()) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn shell_success_with_unsafe: () :bool {
+    // With an open unsafe scope, the shell command runs.
+    set was = fs::unrestricted::enter()
+    set out = proc::shell("echo -n hello")
+    set status = proc::shell_status()
+    use pal_sbx_set_unsafe(was)
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/shell/output", out, "hello") { set ok = false }
+    if !use! harness::check_i64("proc/shell/status", status, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn shell_failure_status: () :bool {
+    set was = fs::unrestricted::enter()
+    set out = proc::shell("false")
+    set status = proc::shell_status()
+    use pal_sbx_set_unsafe(was)
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/shell/false-output", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/shell/false-status", status, 1) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn shell_pipeline: () :bool {
+    set was = fs::unrestricted::enter()
+    set out = proc::shell("echo a b c | tr ' ' '\\n'")
+    set status = proc::shell_status()
+    use pal_sbx_set_unsafe(was)
+    set ok = true :bool mut
+    if !use! harness::check("proc/shell/pipeline", strings::len(out) > 0) { set ok = false }
+    if !use! harness::check_i64("proc/shell/pipeline-status", status, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn shell_status_anomaly_without_unsafe: () :bool {
+    // shell_status is -1 when the call was denied.
+    set out = proc::shell("true")
+    set status = proc::shell_status()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/shell/denied-out", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/shell/denied-status", status, -1) { set ok = false }
+    use! harness::anomaly("proc/shell", "denied_status", "true", "-1", strings::from::i64(status), status == -1)
+    return ok
+}

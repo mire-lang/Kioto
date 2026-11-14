@@ -1,0 +1,41 @@
+// Per-symbol suite: kioto::strings::join
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn join_success_three_parts: () :bool {
+    set ok = use! harness::check_str("join/three", strings::join(["a", "b", "c"], "-"), "a-b-c")
+    return ok
+}
+
+@[test]
+pub fn join_limit_single_part: () :bool {
+    set ok = use! harness::check_str("join/single", strings::join(["only"], ","), "only")
+    return ok
+}
+
+@[test]
+pub fn join_limit_empty_list: () :bool {
+    set parts = [] :vec[str] mut
+    set ok = use! harness::check_str("join/empty-list", strings::join(parts, "-"), "")
+    return ok
+}
+
+@[test]
+pub fn join_anomaly_empty_parts_keep_separator: () :bool {
+    set parts = [] :vec[str] mut
+    set parts = vec::push::str(parts, "")
+    set parts = vec::push::str(parts, "")
+    set got = strings::join(parts, ",")
+    set ok = true :bool mut
+    if !use! harness::check_str("join/empty-parts", got, ",") { set ok = false }
+    use! harness::anomaly("strings/join", "empty_parts", "[,]", ",", got, got == ",")
+    return ok
+}
+
+@[test]
+pub fn join_limit_empty_separator: () :bool {
+    set ok = use! harness::check_str("join/empty-sep", strings::join(["a", "b"], ""), "ab")
+    return ok
+}

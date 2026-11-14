@@ -1,0 +1,247 @@
+// Per-symbol suite: kioto::fs::{mkdir,dir::create,dir::remove,remove,remove_all}
+// and kioto::fs::owl::mkdirs.
+//
+// Two different removal surfaces: fs::remove reports an error code (NOT_EMPTY
+// for a non-empty directory), while fs::dir::remove does not. fs::remove_all
+// is the recursive one and removes files as well as trees.
+//
+// fs::list is quarantined: on this runtime it returns a corrupt vector
+// (vec::len reports 0x59584eb3360e6b33) and usually kills the process with
+// SIGSEGV, so no public directory-enumeration path is testable yet. The
+// ignored case below is the test to enable when that is fixed.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn mkdir_success_single_level: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "mkdir")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    set created = fs::mkdir(child)
+    set present = fs::exists(child)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/mkdir", created) { set ok = false }
+    if !use! harness::check("dir/mkdir-exists", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn mkdir_limit_already_exists_and_missing_parent: () :bool {
+    // Documented: false covers both "already exists" and "parent missing",
+    // and neither sets an error code.
+    set dir = use! harness::fixture_dir("fs/dir", "mkdir-limit")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    use fs::mkdir(child)
+    set again = fs::mkdir(child)
+    set again_code = fs::last_error()
+    set nested = strings::copy(fs::path::join(dir, "no/child"))
+    set missing_parent = fs::mkdir(nested)
+    set missing_code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/mkdir-again", again) { set ok = false }
+    if !use! harness::check_i64("dir/mkdir-again-code", again_code, fs::err_ok()) { set ok = false }
+    if !use! harness::check_false("dir/mkdir-missing-parent", missing_parent) { set ok = false }
+    if !use! harness::check_i64("dir/mkdir-missing-parent-code", missing_code, fs::err_ok()) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn dir_create_success: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "create")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    set created = fs::dir::create(child)
+    set present = fs::exists(child)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/create", created) { set ok = false }
+    if !use! harness::check("dir/create-exists", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn dir_remove_success_empty: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-empty")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    use fs::dir::create(child)
+    set removed = fs::dir::remove(child)
+    set present = fs::exists(child)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/remove", removed) { set ok = false }
+    if !use! harness::check_false("dir/remove-gone", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn dir_remove_anomaly_non_empty: () :bool {
+    // A non-empty directory cannot be removed. Note that this surface leaves
+    // last_error at OK; fs::remove is the one that reports NOT_EMPTY.
+    set dir = use! harness::fixture_dir("fs/dir", "remove-non-empty")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    use fs::dir::create(child)
+    use fs::write(strings::copy(fs::path::join(child, "note.txt")), "x")
+    set removed = fs::dir::remove(child)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/remove-non-empty", removed) { set ok = false }
+    use! harness::anomaly("fs/dir", "dir_remove_non_empty_error", "non-empty dir", "NOT_EMPTY", strings::from::i64(code), code == fs::err_not_empty())
+    return ok
+}
+
+@[test]
+pub fn remove_success_file_and_empty_dir: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove")
+    set file = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(file, "x")
+    set file_removed = fs::remove(file)
+    set empty = strings::copy(fs::path::join(dir, "empty"))
+    use fs::dir::create(empty)
+    set empty_removed = fs::remove(empty)
+    set file_present = fs::exists(file)
+    set empty_present = fs::exists(empty)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/remove-file", file_removed) { set ok = false }
+    if !use! harness::check_false("dir/remove-file-gone", file_present) { set ok = false }
+    if !use! harness::check("dir/remove-empty", empty_removed) { set ok = false }
+    if !use! harness::check_false("dir/remove-empty-gone", empty_present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn remove_limit_missing: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-missing")
+    set ghost = strings::copy(fs::path::join(dir, "ghost"))
+    set removed = fs::remove(ghost)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/remove-missing", removed) { set ok = false }
+    if !use! harness::check_i64("dir/remove-missing-code", code, fs::err_not_found()) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn remove_anomaly_non_empty_tree: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-tree")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    use fs::dir::create(child)
+    use fs::write(strings::copy(fs::path::join(child, "note.txt")), "x")
+    set removed = fs::remove(child)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/remove-tree", removed) { set ok = false }
+    if !use! harness::check_i64("dir/remove-tree-code", code, fs::err_not_empty()) { set ok = false }
+    use! harness::anomaly("fs/dir", "remove_non_empty", "tree", "NOT_EMPTY", strings::from::i64(code), code == fs::err_not_empty())
+    return ok
+}
+
+@[test]
+pub fn remove_all_success_tree: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-all")
+    set child = strings::copy(fs::path::join(dir, "one"))
+    set nested = strings::copy(fs::path::join(child, "two"))
+    use fs::owl::mkdirs(nested)
+    use fs::write(strings::copy(fs::path::join(child, "a.txt")), "x")
+    use fs::write(strings::copy(fs::path::join(nested, "b.txt")), "y")
+    set removed = fs::remove_all(child)
+    set present = fs::exists(child)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/remove-all", removed) { set ok = false }
+    if !use! harness::check_false("dir/remove-all-gone", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn remove_all_limit_single_file: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-all-file")
+    set file = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(file, "x")
+    set removed = fs::remove_all(file)
+    set present = fs::exists(file)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/remove-all-file", removed) { set ok = false }
+    if !use! harness::check_false("dir/remove-all-file-gone", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn remove_all_anomaly_missing: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "remove-all-missing")
+    set ghost = strings::copy(fs::path::join(dir, "ghost"))
+    set removed = fs::remove_all(ghost)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/remove-all-missing", removed) { set ok = false }
+    if !use! harness::check_i64("dir/remove-all-missing-code", code, fs::err_not_found()) { set ok = false }
+    use! harness::anomaly("fs/dir", "remove_all_missing", "ghost", "false + NOT_FOUND", strings::from::i64(code), code == fs::err_not_found())
+    return ok
+}
+
+@[test]
+pub fn mkdirs_success_nested: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "mkdirs")
+    set deep = strings::copy(fs::path::join(dir, "a/b/c"))
+    set created = fs::owl::mkdirs(deep)
+    set a = fs::exists(strings::copy(fs::path::join(dir, "a")))
+    set b = fs::exists(strings::copy(fs::path::join(dir, "a/b")))
+    set c = fs::exists(deep)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/mkdirs", created) { set ok = false }
+    if !use! harness::check("dir/mkdirs-a", a) { set ok = false }
+    if !use! harness::check("dir/mkdirs-b", b) { set ok = false }
+    if !use! harness::check("dir/mkdirs-c", c) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn mkdirs_limit_existing_and_trailing_slash: () :bool {
+    set dir = use! harness::fixture_dir("fs/dir", "mkdirs-limit")
+    set existing = fs::owl::mkdirs(dir)
+    set trailing = strings::copy(strings::concat(fs::path::join(dir, "tr1"), "/"))
+    set created = fs::owl::mkdirs(trailing)
+    set present = fs::exists(strings::copy(fs::path::join(dir, "tr1")))
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("dir/mkdirs-existing", existing) { set ok = false }
+    if !use! harness::check("dir/mkdirs-trailing", created) { set ok = false }
+    if !use! harness::check("dir/mkdirs-trailing-exists", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn mkdirs_anomaly_empty_and_file_component: () :bool {
+    // The empty path is not a directory, and a regular file can never become
+    // an intermediate level, so both must fail.
+    set dir = use! harness::fixture_dir("fs/dir", "mkdirs-bad")
+    set blocker = strings::copy(fs::path::join(dir, "blocker"))
+    use fs::write(blocker, "x")
+    set under_file = fs::owl::mkdirs(strings::copy(fs::path::join(blocker, "child")))
+    set empty = fs::owl::mkdirs("")
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("dir/mkdirs-under-file", under_file) { set ok = false }
+    if !use! harness::check_false("dir/mkdirs-empty", empty) { set ok = false }
+    use! harness::anomaly("fs/dir", "mkdirs_file_component", "blocker/child", "false", strings::from::bool(under_file), !under_file)
+    return ok
+}
+
+@[test, ignore]
+pub fn list_quarantined_corrupt_vector: () :bool {
+    // Enable only after the runtime's list push is fixed. fs::list currently
+    // returns a corrupt vector and the test binary dies with SIGSEGV before
+    // the assertions can run.
+    set dir = use! harness::fixture_dir("fs/dir", "list")
+    use fs::write(strings::copy(fs::path::join(dir, "a.txt")), "x")
+    set entries = fs::list(dir)
+    use! harness::fixture_cleanup(dir)
+    return use! harness::check_i64("dir/list-len", vec::len(entries), 2)
+}

@@ -1,0 +1,106 @@
+// Per-symbol suite: kioto::crypto::random::secure::{bytes,seed,i64}
+//
+// The secure source is `crypto::random::secure`; the parent module is only a
+// namespace. An empty vector or string is the failure signal, so zero bytes
+// asked for is indistinguishable from a failed read: that ambiguity is the
+// anomaly case.
+
+load kioto
+load! /tests/_support/harness
+
+fn is_hex_char: (c :i64) :bool {
+    if c >= 48 {
+        if c <= 57 { return true }
+    }
+    if c >= 97 {
+        if c <= 102 { return true }
+    }
+    return false
+}
+
+fn all_bytes_in_range: (bytes :&vec[i64]) :bool {
+    set i = 0 :i64 mut
+    while i < vec::len(bytes) {
+        set b = vec::get::i64(bytes, i)
+        if b < 0 || b > 255 { return false }
+        set i += 1
+    }
+    return true
+}
+
+fn all_hex: (s :&str) :bool {
+    set i = 0 :i64 mut
+    while i < strings::len(s) {
+        if !is_hex_char(strings::char_at(s, i)) { return false }
+        set i += 1
+    }
+    return true
+}
+
+@[test]
+pub fn bytes_success_returns_requested_count: () :bool {
+    set bytes = crypto::random::secure::bytes(16)
+    set ok = true :bool mut
+    if !use! harness::check_i64("random/bytes/len", vec::len(bytes), 16) { set ok = false }
+    if !use! harness::check("random/bytes/range", all_bytes_in_range(bytes)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn seed_success_is_double_length_lowercase_hex: () :bool {
+    set seed = crypto::random::secure::seed(16)
+    set ok = true :bool mut
+    if !use! harness::check_i64("random/seed/len", strings::len(seed), 32) { set ok = false }
+    if !use! harness::check("random/seed/hex", all_hex(seed)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn seed_limit_zero_is_empty: () :bool {
+    set ok = use! harness::check_str("random/seed/zero", crypto::random::secure::seed(0), "")
+    return ok
+}
+
+@[test]
+pub fn bytes_anomaly_zero_is_indistinguishable_from_failure: () :bool {
+    set bytes = crypto::random::secure::bytes(0)
+    set got = vec::len(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_i64("random/bytes/zero", got, 0) { set ok = false }
+    use! harness::anomaly("crypto/random", "zero_bytes_ambiguous", "0", "0 bytes", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn bytes_anomaly_negative_count_is_empty: () :bool {
+    set bytes = crypto::random::secure::bytes(-1)
+    set seed = crypto::random::secure::seed(-1)
+    set got = vec::len(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_i64("random/bytes/negative", got, 0) { set ok = false }
+    if !use! harness::check_str("random/seed/negative", seed, "") { set ok = false }
+    use! harness::anomaly("crypto/random", "negative_count", "-1", "0 bytes", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn seed_anomaly_two_calls_differ: () :bool {
+    set first = crypto::random::secure::seed(16)
+    set second = crypto::random::secure::seed(16)
+    set different = first != second
+    set ok = true :bool mut
+    if !use! harness::check("random/seed/distinct", different) { set ok = false }
+    use! harness::anomaly("crypto/random", "two_seeds_differ", "16 bytes x2", "different", strings::from::bool(different), different)
+    return ok
+}
+
+@[test]
+pub fn i64_smoke_returns_without_crashing: () :bool {
+    set value = crypto::random::secure::i64()
+    // Zero is a legitimate value, so the only assertion is that the call
+    // returned an integer at all.
+    set ok = true :bool mut
+    if !use! harness::check("random/i64/returned", value == value) { set ok = false }
+    use! harness::anomaly("crypto/random", "i64_smoke", "8 bytes", "any i64", strings::from::i64(value), true)
+    return ok
+}

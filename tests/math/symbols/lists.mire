@@ -1,0 +1,104 @@
+// Per-symbol suite: kioto::math::{sum,avg,product,minlist,maxlist}
+// List reductions over vec[i64] returning f64 (no f64 vectors yet).
+
+load kioto
+load! /tests/_support/harness
+
+fn feq: (a :f64, b :f64) :bool {
+    set diff = if a > b { a - b } else { b - a }
+    return diff < 0.0000001
+}
+
+fn vec_of: (a :i64, b :i64, c :i64, d :i64) :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, a)
+    set v = vec::push::i64(v, b)
+    set v = vec::push::i64(v, c)
+    set v = vec::push::i64(v, d)
+    return v
+}
+
+fn vec_of_one: (a :i64) :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, a)
+    return v
+}
+
+fn empty_vec: () :vec[i64] {
+    set v = [] :vec[i64] mut
+    return v
+}
+
+@[test]
+pub fn sum_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/sum/4", feq(math::sum(vec_of(1, 2, 3, 4)), 10.0)) { set ok = false }
+    if !use! harness::check("math/sum/neg", feq(math::sum(vec_of(-1, -2, -3, -4)), -10.0)) { set ok = false }
+    if !use! harness::check("math/sum/mixed", feq(math::sum(vec_of(-1, 2, -3, 4)), 2.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sum_limit_empty: () :bool {
+    set ok = use! harness::check("math/sum/empty", feq(math::sum(empty_vec()), 0.0))
+    return ok
+}
+
+@[test]
+pub fn avg_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/avg/4", feq(math::avg(vec_of(1, 2, 3, 4)), 2.5)) { set ok = false }
+    if !use! harness::check("math/avg/neg", feq(math::avg(vec_of(-6, 0, 0, 0)), -1.5)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn avg_limit_empty: () :bool {
+    // Empty list has no mean, returns 0.0.
+    set ok = use! harness::check("math/avg/empty", feq(math::avg(empty_vec()), 0.0))
+    return ok
+}
+
+@[test]
+pub fn product_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/product/4", feq(math::product(vec_of(1, 2, 3, 4)), 24.0)) { set ok = false }
+    if !use! harness::check("math/product/zero", feq(math::product(vec_of(1, 0, 3, 0)), 0.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn product_limit_empty: () :bool {
+    // Empty list is multiplicative identity.
+    set ok = use! harness::check("math/product/empty", feq(math::product(empty_vec()), 1.0))
+    return ok
+}
+
+@[test]
+pub fn minlist_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/minlist/4", math::minlist(vec_of(3, 1, 4, 2)), 1) { set ok = false }
+    if !use! harness::check_i64("math/minlist/neg", math::minlist(vec_of(-1, -5, -3, 0)), -5) { set ok = false }
+    if !use! harness::check_i64("math/minlist/single", math::minlist(vec_of_one(42)), 42) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn minlist_limit_empty: () :bool {
+    set ok = use! harness::check_i64("math/minlist/empty", math::minlist(empty_vec()), 0)
+    return ok
+}
+
+@[test]
+pub fn maxlist_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/maxlist/4", math::maxlist(vec_of(3, 1, 4, 2)), 4) { set ok = false }
+    if !use! harness::check_i64("math/maxlist/neg", math::maxlist(vec_of(-1, -5, -3, 0)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn maxlist_limit_empty: () :bool {
+    set ok = use! harness::check_i64("math/maxlist/empty", math::maxlist(empty_vec()), 0)
+    return ok
+}

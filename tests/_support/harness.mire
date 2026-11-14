@@ -1,0 +1,152 @@
+// Shared helpers for the per-symbol suites.
+//
+// Tests load this module with a project-root `load!`:
+//
+//     load kioto
+//     load! /tests/_support/harness
+//
+// and call it through `use!`:
+//
+//     if !use! harness::check("strings::len/empty", strings::len("") == 0) { ... }
+//
+// Every helper is deliberately free of state that outlives one call, because
+// the test binaries run in parallel in separate processes.
+
+module harness
+
+load kioto::fs
+load kioto::strings
+load kioto::time
+
+// ── assertions ────────────────────────────────────────────────────
+// `check` prints a [FAIL] line, which the runner scans for, and returns the
+// condition so a test can fold it into its own result. The name is the
+// contract: it names the symbol and the case, not the test function.
+
+pub fn check: (name :&str, condition :bool) :bool {
+    if condition {
+        return true
+    }
+    use dasu(strings::concat("[FAIL] ", name))
+    return false
+}
+
+// The negative assertion. `check(name, !condition)` works too, but this keeps
+// the call site reading as the question it asks and reports "expected false"
+// when the condition is unexpectedly true.
+pub fn check_false: (name :&str, condition :bool) :bool {
+    if !condition {
+        return true
+    }
+    use dasu(strings::concat("[FAIL] ", name))
+    use dasu("  expected: false")
+    return false
+}
+
+pub fn check_i64: (name :&str, actual :i64, expected :i64) :bool {
+    if actual == expected {
+        return true
+    }
+    use dasu(strings::concat("[FAIL] ", name))
+    use dasu(strings::concat("  expected: ", strings::from::i64(expected)))
+    use dasu(strings::concat("  actual:   ", strings::from::i64(actual)))
+    return false
+}
+
+pub fn check_str: (name :&str, actual :&str, expected :&str) :bool {
+    if actual == expected {
+        return true
+    }
+    use dasu(strings::concat("[FAIL] ", name))
+    use dasu(strings::concat("  expected: ", expected))
+    use dasu(strings::concat("  actual:   ", actual))
+    return false
+}
+
+pub fn check_between: (name :&str, actual :i64, low :i64, high :i64) :bool {
+    if actual >= low {
+        if actual <= high {
+            return true
+        }
+    }
+    use dasu(strings::concat("[FAIL] ", name))
+    use dasu(strings::concat("  expected between: ", strings::from::i64(low)))
+    use dasu(strings::concat("  and:              ", strings::from::i64(high)))
+    use dasu(strings::concat("  actual:           ", strings::from::i64(actual)))
+    return false
+}
+
+// ── isolated fixtures ─────────────────────────────────────────────
+// A fixture directory unique to one test case. The base is relative to the
+// package root (the directory `mire test` runs from), and the leaf combines
+// the case name with a monotonic timestamp so two parallel binaries cannot
+// pick the same path. Everything stays under tests/<suite>/fixtures/tmp/,
+// which is gitignored.
+
+pub fn fixture_dir: (suite :&str, case :&str) :str {
+    set base = strings::concat("tests/", suite) :str mut
+    set base = strings::concat(base, "/fixtures/tmp")
+    use fs::owl::mkdirs(base)
+    set path = strings::concat(base, "/") :str mut
+    set path = strings::concat(path, case)
+    set path = strings::concat(path, "-")
+    set path = strings::concat(path, strings::from::i64(time::now::ns()))
+    use fs::owl::mkdirs(path)
+    return path
+}
+
+pub fn fixture_cleanup: (path :&str) {
+    if strings::len(path) == 0 {
+        return
+    }
+    use fs::remove_all(path)
+}
+
+// ── anomaly log ───────────────────────────────────────────────────
+// One line per anomalous case, in a stable key=value format:
+//
+//   suite=strings/to case=empty input="" expected=0 got=0 ok=true
+//
+// The file lives next to the suite under logs/, which is gitignored except for
+// the .gitkeep that keeps the directory in the tree.
+
+pub fn anomaly: (suite :&str, case :&str, input :&str, expected :&str, got :&str, ok :bool) {
+    set line = strings::concat("suite=", suite) :str mut
+    set line = strings::concat(line, " case=")
+    set line = strings::concat(line, case)
+    set line = strings::concat(line, " input=")
+    set line = strings::concat(line, quote_field(input))
+    set line = strings::concat(line, " expected=")
+    set line = strings::concat(line, quote_field(expected))
+    set line = strings::concat(line, " got=")
+    set line = strings::concat(line, quote_field(got))
+    set line = strings::concat(line, " ok=")
+    if ok {
+        set line = strings::concat(line, "true")
+    } else {
+        set line = strings::concat(line, "false")
+    }
+    set line = strings::concat(line, "\n")
+    use append_line(strings::concat("tests/", suite), line)
+}
+
+// Quotes a field so a space or an empty value survives a line-oriented parser.
+fn quote_field: (value :&str) :str {
+    set escaped = strings::replace::all(value, "\"", "'")
+    set quoted = strings::concat("\"", escaped) :str mut
+    set quoted = strings::concat(quoted, "\"")
+    return quoted
+}
+
+// Appends one line by reading the current log and writing it back with the new
+// line. fs has no public append flag, and the runner compiles one file per
+// unit, so the simple read-modify-write is enough for one process to own the
+// file for its lifetime.
+
+fn append_line: (dir :&str, line :&str) {
+    use fs::owl::mkdirs(strings::concat(dir, "/logs"))
+    set path = strings::concat(dir, "/logs/anomalies.log")
+    set existing = fs::read(path)
+    set all = strings::concat(existing, line)
+    use fs::write(path, all)
+}

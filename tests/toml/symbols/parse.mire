@@ -1,0 +1,14 @@
+// Per-symbol suite: kioto::toml::{parse,free,type checks,getters,table,array}
+//
+// NOTE: The toml module is not exported by the kioto package and has a known
+// type error in table_get (TomlValue(node=0) expects ptr, gets i64).
+// These tests are placeholders until the module is fixed and exported.
+
+load toml
+load! /tests/_support/harness
+
+@[test]
+pub fn toml_smoke: () :bool {
+    // Smoke test: the module loads
+    return true
+}

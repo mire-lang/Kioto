@@ -1,0 +1,43 @@
+// Per-symbol suite: kioto::env::{cwd,var}
+//
+// env::args is not tested: its signature needs the raw argc/argv pair, which
+// a Mire main cannot receive. It is listed as a blocker in the plan.
+//
+// cwd and var return borrowed, process-owned strings; the tests read them and
+// never free them.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn cwd_success_is_absolute_and_non_empty: () :bool {
+    set cwd = env::cwd()
+    set ok = true :bool mut
+    if !use! harness::check("env/cwd/non-empty", strings::len(cwd) > 0) { set ok = false }
+    if !use! harness::check("env/cwd/absolute", strings::starts::with(cwd, "/")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn var_missing_is_empty: () :bool {
+    set name = "KIOTO_SUITE_VAR_THAT_MUST_NOT_EXIST_9F3A"
+    set ok = use! harness::check_str("env/var/missing", env::var(name), "")
+    return ok
+}
+
+@[test]
+pub fn var_limit_present_variable: () :bool {
+    // PATH is the one variable every POSIX shell exports; a build environment
+    // without it is broken enough that failing here is informative.
+    set ok = use! harness::check("env/var/path", strings::len(env::var("PATH")) > 0)
+    return ok
+}
+
+@[test]
+pub fn var_anomaly_empty_name_is_empty: () :bool {
+    set got = env::var("")
+    set ok = true :bool mut
+    if !use! harness::check_str("env/var/empty-name", got, "") { set ok = false }
+    use! harness::anomaly("env/var", "empty_name", "", "", got, got == "")
+    return ok
+}

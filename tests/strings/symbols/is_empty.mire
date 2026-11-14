@@ -1,0 +1,38 @@
+// Per-symbol suite: kioto::strings::is::empty
+//
+// Cases: success (empty is empty), limit (whitespace is not empty), anomaly
+// (a multi-byte character is a non-empty string).
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn is_empty_success_empty: () :bool {
+    return use! harness::check("is::empty/empty", strings::is::empty(""))
+}
+
+@[test]
+pub fn is_empty_limit_whitespace_is_not_empty: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_false("is::empty/space", strings::is::empty(" ")) { set ok = false }
+    if !use! harness::check_false("is::empty/tab", strings::is::empty("\t")) { set ok = false }
+    if !use! harness::check_false("is::empty/newline", strings::is::empty("\n")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn is_empty_anomaly_multibyte_is_not_empty: () :bool {
+    set ok = true :bool mut
+    set empty = strings::is::empty("ñ")
+    if !use! harness::check_false("is::empty/utf8", empty) { set ok = false }
+    use! harness::anomaly("strings/is", "multibyte", "ñ", "false", strings::from::bool(empty), !empty)
+    return ok
+}
+
+@[test]
+pub fn is_empty_limit_non_empty: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_false("is::empty/text", strings::is::empty("a")) { set ok = false }
+    if !use! harness::check_false("is::empty/zero-char", strings::is::empty("0")) { set ok = false }
+    return ok
+}

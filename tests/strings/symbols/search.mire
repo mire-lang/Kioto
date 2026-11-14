@@ -1,0 +1,112 @@
+// Per-symbol suite: kioto::strings::{contains,index,starts::with,ends::with}
+//
+// index reports byte offsets. -1 is the only failure signal, so 0 means
+// "found at the front", never "not found".
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn contains_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("contains/hit", strings::contains("abc", "b")) { set ok = false }
+    if !use! harness::check_false("contains/miss", strings::contains("abc", "z")) { set ok = false }
+    if !use! harness::check_false("contains/case", strings::contains("abc", "B")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn contains_limit_empty_sub: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("contains/empty-sub", strings::contains("abc", "")) { set ok = false }
+    if !use! harness::check("contains/empty-both", strings::contains("", "")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn contains_anomaly_sub_longer_than_input: () :bool {
+    set ok = true :bool mut
+    set got = strings::contains("abc", "abcd")
+    if !use! harness::check_false("contains/longer-sub", got) { set ok = false }
+    use! harness::anomaly("strings/contains", "sub_longer", "abc|abcd", "false", strings::from::bool(got), !got)
+    return ok
+}
+
+@[test]
+pub fn index_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("index/middle", strings::index("abc", "b"), 1) { set ok = false }
+    if !use! harness::check_i64("index/front", strings::index("abc", "a"), 0) { set ok = false }
+    if !use! harness::check_i64("index/overlap", strings::index("aaaa", "aa"), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn index_limit_empty_sub: () :bool {
+    set ok = use! harness::check_i64("index/empty-sub", strings::index("abc", ""), 0)
+    return ok
+}
+
+@[test]
+pub fn index_anomaly_not_found_and_utf8_offset: () :bool {
+    set ok = true :bool mut
+    set missing = strings::index("abc", "z")
+    set utf8 = strings::index("añb", "b")
+    if !use! harness::check_i64("index/miss", missing, -1) { set ok = false }
+    if !use! harness::check_i64("index/utf8-byte-offset", utf8, 3) { set ok = false }
+    use! harness::anomaly("strings/index", "not_found", "abc|z", "-1", strings::from::i64(missing), missing == -1)
+    use! harness::anomaly("strings/index", "utf8_offset", "añb|b", "3", strings::from::i64(utf8), utf8 == 3)
+    return ok
+}
+
+@[test]
+pub fn starts_with_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("starts/hit", strings::starts::with("hello", "he")) { set ok = false }
+    if !use! harness::check_false("starts/miss", strings::starts::with("hello", "el")) { set ok = false }
+    if !use! harness::check_false("starts/case", strings::starts::with("hello", "He")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn starts_with_limit_empty_prefix: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("starts/empty-prefix", strings::starts::with("abc", "")) { set ok = false }
+    if !use! harness::check("starts/empty-both", strings::starts::with("", "")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn starts_with_anomaly_prefix_longer_than_input: () :bool {
+    set ok = true :bool mut
+    set got = strings::starts::with("abc", "abcd")
+    if !use! harness::check_false("starts/longer-prefix", got) { set ok = false }
+    use! harness::anomaly("strings/starts", "prefix_longer", "abc|abcd", "false", strings::from::bool(got), !got)
+    return ok
+}
+
+@[test]
+pub fn ends_with_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("ends/hit", strings::ends::with("hello", "lo")) { set ok = false }
+    if !use! harness::check_false("ends/miss", strings::ends::with("hello", "he")) { set ok = false }
+    if !use! harness::check_false("ends/case", strings::ends::with("hello", "LO")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ends_with_limit_empty_suffix: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("ends/empty-suffix", strings::ends::with("abc", "")) { set ok = false }
+    if !use! harness::check("ends/empty-both", strings::ends::with("", "")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ends_with_anomaly_suffix_longer_than_input: () :bool {
+    set ok = true :bool mut
+    set got = strings::ends::with("abc", "zabc")
+    if !use! harness::check_false("ends/longer-suffix", got) { set ok = false }
+    use! harness::anomaly("strings/ends", "suffix_longer", "abc|zabc", "false", strings::from::bool(got), !got)
+    return ok
+}

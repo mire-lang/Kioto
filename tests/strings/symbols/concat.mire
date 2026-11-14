@@ -1,0 +1,59 @@
+// Per-symbol suite: kioto::strings::{concat,copy}
+//
+// concat allocates a new value. copy is the explicit second reference for the
+// cases where a by-value call would move the original.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn concat_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("concat/two", strings::concat("a", "b"), "ab") { set ok = false }
+    if !use! harness::check_str("concat/sentence", strings::concat("hello ", "world"), "hello world") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn concat_limit_empty_operand: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("concat/empty-left", strings::concat("", "b"), "b") { set ok = false }
+    if !use! harness::check_str("concat/empty-right", strings::concat("a", ""), "a") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn concat_anomaly_both_empty: () :bool {
+    set got = strings::concat("", "")
+    set ok = true :bool mut
+    if !use! harness::check_str("concat/both-empty", got, "") { set ok = false }
+    use! harness::anomaly("strings/concat", "both_empty", "|", "", got, got == "")
+    return ok
+}
+
+@[test]
+pub fn copy_success_preserves_content: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("copy/text", strings::copy("xy"), "xy") { set ok = false }
+    if !use! harness::check_str("copy/again", strings::copy("xy"), "xy") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn copy_limit_empty: () :bool {
+    set ok = use! harness::check_str("copy/empty", strings::copy(""), "")
+    return ok
+}
+
+@[test]
+pub fn copy_anomaly_survives_concat: () :bool {
+    // A copy has to stay usable after the original is consumed by another
+    // call: the two calls below must not affect each other.
+    set original = strings::copy("abc")
+    set joined = strings::concat(original, "def")
+    set ok = true :bool mut
+    if !use! harness::check_str("copy/joined", joined, "abcdef") { set ok = false }
+    if !use! harness::check_str("copy/original-intact", strings::copy(original), "abc") { set ok = false }
+    use! harness::anomaly("strings/copy", "survives_concat", "abc", "abc", strings::copy(original), strings::copy(original) == "abc")
+    return ok
+}

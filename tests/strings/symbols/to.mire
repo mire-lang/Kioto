@@ -1,0 +1,80 @@
+// Per-symbol suite: kioto::strings::to::i64
+//
+// The documented contract is atoll: optional leading whitespace, an optional
+// sign, then digits until the first non-digit, and 0 when there is no leading
+// integer. The current runtime ignores the sign and leading whitespace, so
+// those cases fail until it is fixed. Overflow is undefined in atoll, so that
+// case asserts only that nothing crashes and logs the observed value.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn to_i64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/plain", strings::to::i64("42"), 42) { set ok = false }
+    if !use! harness::check_i64("to_i64/leading-digits", strings::to::i64("12x3"), 12) { set ok = false }
+    if !use! harness::check_i64("to_i64/float-prefix", strings::to::i64("3.9"), 3) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn to_i64_limit_zero_and_empty: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/zero", strings::to::i64("0"), 0) { set ok = false }
+    if !use! harness::check_i64("to_i64/empty", strings::to::i64(""), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn to_i64_limit_max: () :bool {
+    set ok = use! harness::check_i64("to_i64/max", strings::to::i64("9223372036854775807"), 9223372036854775807)
+    return ok
+}
+
+@[test]
+pub fn to_i64_anomaly_garbage_is_zero: () :bool {
+    set got = strings::to::i64("abc")
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/garbage", got, 0) { set ok = false }
+    use! harness::anomaly("strings/to", "garbage", "abc", "0", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn to_i64_anomaly_negative_sign: () :bool {
+    // atoll("-7") is -7. The runtime currently stops at the '-' and returns 0.
+    set got = strings::to::i64("-7")
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/negative", got, -7) { set ok = false }
+    use! harness::anomaly("strings/to", "negative_sign", "-7", "-7", strings::from::i64(got), got == -7)
+    return ok
+}
+
+@[test]
+pub fn to_i64_anomaly_leading_space: () :bool {
+    // atoll skips leading whitespace. The runtime currently returns 0.
+    set got = strings::to::i64(" 42")
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/leading-space", got, 42) { set ok = false }
+    use! harness::anomaly("strings/to", "leading_space", " 42", "42", strings::from::i64(got), got == 42)
+    return ok
+}
+
+@[test]
+pub fn to_i64_anomaly_min: () :bool {
+    set got = strings::to::i64("-9223372036854775808")
+    set ok = true :bool mut
+    if !use! harness::check_i64("to_i64/min", got, -9223372036854775808) { set ok = false }
+    use! harness::anomaly("strings/to", "min", "-9223372036854775808", "-9223372036854775808", strings::from::i64(got), got == -9223372036854775808)
+    return ok
+}
+
+@[test]
+pub fn to_i64_anomaly_overflow_does_not_crash: () :bool {
+    // atoll has no error channel, so overflow is undefined. Assert only that
+    // the call terminates and returns some integer, and record the value.
+    set got = strings::to::i64("9223372036854775808")
+    use! harness::anomaly("strings/to", "overflow", "9223372036854775808", "undefined", strings::from::i64(got), got == 9223372036854775807)
+    return true
+}

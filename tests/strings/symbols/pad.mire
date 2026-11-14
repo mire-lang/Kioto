@@ -1,0 +1,79 @@
+// Per-symbol suite: kioto::strings::pad::{left,right}
+//
+// Pads to a minimum width. A filler longer than one byte is repeated and cut
+// to fit. A string already at or over the width comes back unchanged, and an
+// empty filler pads nothing.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn pad_left_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_left/zero", strings::pad::left("7", 3, "0"), "007") { set ok = false }
+    if !use! harness::check_str("pad_left/space", strings::pad::left("x", 4, " "), "   x") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn pad_left_limit_at_or_over_width: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_left/exact", strings::pad::left("abc", 3, "x"), "abc") { set ok = false }
+    if !use! harness::check_str("pad_left/over", strings::pad::left("abc", 2, "x"), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn pad_left_anomaly_empty_filler: () :bool {
+    set got = strings::pad::left("7", 5, "")
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_left/empty-filler", got, "7") { set ok = false }
+    use! harness::anomaly("strings/pad", "left_empty_filler", "7|5|", "7", got, got == "7")
+    return ok
+}
+
+@[test]
+pub fn pad_left_anomaly_multi_byte_filler: () :bool {
+    // "ab" repeated to three filler bytes then the value: "aba" + "7".
+    set got = strings::pad::left("7", 4, "ab")
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_left/multi-filler", got, "aba7") { set ok = false }
+    use! harness::anomaly("strings/pad", "left_multi_filler", "7|4|ab", "aba7", got, got == "aba7")
+    return ok
+}
+
+@[test]
+pub fn pad_right_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_right/zero", strings::pad::right("7", 3, "0"), "700") { set ok = false }
+    if !use! harness::check_str("pad_right/space", strings::pad::right("x", 4, " "), "x   ") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn pad_right_limit_at_or_over_width: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_right/exact", strings::pad::right("abc", 3, "x"), "abc") { set ok = false }
+    if !use! harness::check_str("pad_right/over", strings::pad::right("abc", 2, "x"), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn pad_right_anomaly_multi_byte_filler: () :bool {
+    set got = strings::pad::right("7", 4, "ab")
+    set ok = true :bool mut
+    if !use! harness::check_str("pad_right/multi-filler", got, "7aba") { set ok = false }
+    use! harness::anomaly("strings/pad", "right_multi_filler", "7|4|ab", "7aba", got, got == "7aba")
+    return ok
+}
+
+@[test]
+pub fn pad_anomaly_negative_width: () :bool {
+    set left = strings::pad::left("ab", -1, "x")
+    set right = strings::pad::right("ab", -1, "x")
+    set ok = true :bool mut
+    if !use! harness::check_str("pad/negative-width-left", left, "ab") { set ok = false }
+    if !use! harness::check_str("pad/negative-width-right", right, "ab") { set ok = false }
+    use! harness::anomaly("strings/pad", "negative_width", "ab|-1|x", "ab", left, left == "ab")
+    return ok
+}

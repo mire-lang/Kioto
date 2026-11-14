@@ -1,0 +1,161 @@
+// Per-symbol suite: kioto::math::int
+
+load kioto
+load! /tests/_support/harness
+
+fn vec_of: (a :i64, b :i64, c :i64, d :i64) :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, a)
+    set v = vec::push::i64(v, b)
+    set v = vec::push::i64(v, c)
+    set v = vec::push::i64(v, d)
+    return v
+}
+
+fn empty_vec: () :vec[i64] {
+    set v = [] :vec[i64] mut
+    return v
+}
+
+@[test]
+pub fn abs_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/abs/pos", math::int::abs(5), 5) { set ok = false }
+    if !use! harness::check_i64("math/int/abs/neg", math::int::abs(-5), 5) { set ok = false }
+    if !use! harness::check_i64("math/int/abs/zero", math::int::abs(0), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sign_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/sign/pos", math::int::sign(5), 1) { set ok = false }
+    if !use! harness::check_i64("math/int/sign/neg", math::int::sign(-5), -1) { set ok = false }
+    if !use! harness::check_i64("math/int/sign/zero", math::int::sign(0), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn min_max_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/min", math::int::min(3, 5), 3) { set ok = false }
+    if !use! harness::check_i64("math/int/max", math::int::max(3, 5), 5) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn clamp_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/clamp/in", math::int::clamp(5, 0, 10), 5) { set ok = false }
+    if !use! harness::check_i64("math/int/clamp/lo", math::int::clamp(-1, 0, 10), 0) { set ok = false }
+    if !use! harness::check_i64("math/int/clamp/hi", math::int::clamp(15, 0, 10), 10) { set ok = false }
+    if !use! harness::check_i64("math/int/clamp/reversed", math::int::clamp(5, 10, 0), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn minlist_maxlist_success: () :bool {
+    set v = vec_of(3, 1, 4, 2)
+    set empty = empty_vec()
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/minlist", math::int::minlist(v), 1) { set ok = false }
+    if !use! harness::check_i64("math/int/maxlist", math::int::maxlist(v), 4) { set ok = false }
+    if !use! harness::check_i64("math/int/minlist/empty", math::int::minlist(empty), 0) { set ok = false }
+    if !use! harness::check_i64("math/int/maxlist/empty", math::int::maxlist(empty), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sum_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/sum/4", math::int::sum(vec_of(1, 2, 3, 4)), 10) { set ok = false }
+    if !use! harness::check_i64("math/int/sum/empty", math::int::sum(empty_vec()), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn gcd_lcm_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/gcd", math::int::gcd(48, 18), 6) { set ok = false }
+    if !use! harness::check_i64("math/int/lcm", math::int::lcm(48, 18), 144) { set ok = false }
+    if !use! harness::check_i64("math/int/gcd/neg", math::int::gcd(-48, 18), 6) { set ok = false }
+    if !use! harness::check_i64("math/int/lcm/zero", math::int::lcm(0, 5), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn factorial_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/factorial/0", math::int::factorial(0), 1) { set ok = false }
+    if !use! harness::check_i64("math/int/factorial/5", math::int::factorial(5), 120) { set ok = false }
+    if !use! harness::check_i64("math/int/factorial/10", math::int::factorial(10), 3628800) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn comb_perm_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/comb/5-2", math::int::comb(5, 2), 10) { set ok = false }
+    if !use! harness::check_i64("math/int/perm/5-2", math::int::perm(5, 2), 20) { set ok = false }
+    if !use! harness::check_i64("math/int/comb/oob", math::int::comb(5, 6), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn isqrt_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/isqrt/16", math::int::isqrt(16), 4) { set ok = false }
+    if !use! harness::check_i64("math/int/isqrt/15", math::int::isqrt(15), 3) { set ok = false }
+    if !use! harness::check_i64("math/int/isqrt/0", math::int::isqrt(0), 0) { set ok = false }
+    if !use! harness::check_i64("math/int/isqrt/1", math::int::isqrt(1), 1) { set ok = false }
+    if !use! harness::check_i64("math/int/isqrt/neg", math::int::isqrt(-1), -1) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ipow_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/ipow/2^10", math::int::ipow(2, 10), 1024) { set ok = false }
+    if !use! harness::check_i64("math/int/ipow/3^5", math::int::ipow(3, 5), 243) { set ok = false }
+    if !use! harness::check_i64("math/int/ipow/5^0", math::int::ipow(5, 0), 1) { set ok = false }
+    if !use! harness::check_i64("math/int/ipow/neg-exp", math::int::ipow(2, -1), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn divmod_success: () :bool {
+    set res = math::int::divmod(17, 5)
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/int/divmod/q", vec::get::i64(res, 0), 3) { set ok = false }
+    if !use! harness::check_i64("math/int/divmod/r", vec::get::i64(res, 1), 2) { set ok = false }
+    set res0 = math::int::divmod(5, 0)
+    if !use! harness::check_i64("math/int/divmod/by-zero/q", vec::get::i64(res0, 0), 0) { set ok = false }
+    if !use! harness::check_i64("math/int/divmod/by-zero/r", vec::get::i64(res0, 1), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn isPrime_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/int/isPrime/2", math::int::isPrime(2)) { set ok = false }
+    if !use! harness::check("math/int/isPrime/3", math::int::isPrime(3)) { set ok = false }
+    if !use! harness::check_false("math/int/isPrime/4", math::int::isPrime(4)) { set ok = false }
+    if !use! harness::check("math/int/isPrime/17", math::int::isPrime(17)) { set ok = false }
+    if !use! harness::check_false("math/int/isPrime/1", math::int::isPrime(1)) { set ok = false }
+    if !use! harness::check_false("math/int/isPrime/0", math::int::isPrime(0)) { set ok = false }
+    if !use! harness::check_false("math/int/isPrime/neg", math::int::isPrime(-5)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn primeFactors_success: () :bool {
+    set ok = true :bool mut
+    set f12 = math::int::primeFactors(12)
+    if !use! harness::check_i64("math/int/primeFactors/12-len", vec::len(f12), 3) { set ok = false }
+    if !use! harness::check_i64("math/int/primeFactors/12-0", vec::get::i64(f12, 0), 2) { set ok = false }
+    if !use! harness::check_i64("math/int/primeFactors/12-1", vec::get::i64(f12, 1), 2) { set ok = false }
+    if !use! harness::check_i64("math/int/primeFactors/12-2", vec::get::i64(f12, 2), 3) { set ok = false }
+    if !use! harness::check_i64("math/int/primeFactors/1", vec::len(math::int::primeFactors(1)), 0) { set ok = false }
+    if !use! harness::check_i64("math/int/primeFactors/neg", vec::len(math::int::primeFactors(-12)), 3) { set ok = false }
+    return ok
+}

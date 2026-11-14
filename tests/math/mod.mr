@@ -32,62 +32,62 @@ pub fn min_max_clamp: () :bool {
 
 @[test]
 pub fn trunc_toward_zero: () :bool {
-    if math::trunc(3.75) != 3.0 { return false }
-    if math::trunc(0.0 - 3.75) != 0.0 - 3.0 { return false }
-    if math::trunc(4.0) != 4.0 { return false }
-    if math::trunc(0.75) != 0.0 { return false }
-    if math::trunc(0.0 - 0.75) != 0.0 { return false }
+    if math::trunc::f64(3.75) != 3.0 { return false }
+    if math::trunc::f64(0.0 - 3.75) != 0.0 - 3.0 { return false }
+    if math::trunc::f64(4.0) != 4.0 { return false }
+    if math::trunc::f64(0.75) != 0.0 { return false }
+    if math::trunc::f64(0.0 - 0.75) != 0.0 { return false }
     // Every value between -1 and 1 truncates to zero, and a sign-blind fast
     // path would return the negative fraction unchanged.
-    if math::trunc(0.0 - 0.5) != 0.0 { return false }
-    if math::trunc(0.0 - 1.5) != 0.0 - 1.0 { return false }
+    if math::trunc::f64(0.0 - 0.5) != 0.0 { return false }
+    if math::trunc::f64(0.0 - 1.5) != 0.0 - 1.0 { return false }
     return true
 }
 
 @[test]
 pub fn floor_and_ceil_directions: () :bool {
-    if math::floor(3.75) != 3.0 { return false }
-    if math::floor(0.0 - 3.75) != 0.0 - 4.0 { return false }
-    if math::floor(4.0) != 4.0 { return false }
-    if math::ceil(3.25) != 4.0 { return false }
-    if math::ceil(0.0 - 3.75) != 0.0 - 3.0 { return false }
-    if math::ceil(4.0) != 4.0 { return false }
+    if math::floor::f64(3.75) != 3.0 { return false }
+    if math::floor::f64(0.0 - 3.75) != 0.0 - 4.0 { return false }
+    if math::floor::f64(4.0) != 4.0 { return false }
+    if math::ceil::f64(3.25) != 4.0 { return false }
+    if math::ceil::f64(0.0 - 3.75) != 0.0 - 3.0 { return false }
+    if math::ceil::f64(4.0) != 4.0 { return false }
     // Rounding away from zero at the unit boundary.
-    if math::floor(0.0 - 0.5) != 0.0 - 1.0 { return false }
-    if math::ceil(0.0 - 0.5) != 0.0 { return false }
-    if math::floor(0.0 - 0.75) != 0.0 - 1.0 { return false }
-    if math::ceil(0.0 - 0.75) != 0.0 { return false }
+    if math::floor::f64(0.0 - 0.5) != 0.0 - 1.0 { return false }
+    if math::ceil::f64(0.0 - 0.5) != 0.0 { return false }
+    if math::floor::f64(0.0 - 0.75) != 0.0 - 1.0 { return false }
+    if math::ceil::f64(0.0 - 0.75) != 0.0 { return false }
     return true
 }
 
 @[test]
 pub fn round_breaks_ties_away_from_zero: () :bool {
-    if math::round(2.5) != 3.0 { return false }
-    if math::round(0.0 - 2.5) != 0.0 - 3.0 { return false }
-    if math::round(3.4) != 3.0 { return false }
-    if math::round(3.75) != 4.0 { return false }
-    if math::round(0.0 - 3.75) != 0.0 - 4.0 { return false }
-    if math::round(4.0) != 4.0 { return false }
+    if math::round::f64(2.5) != 3.0 { return false }
+    if math::round::f64(0.0 - 2.5) != 0.0 - 3.0 { return false }
+    if math::round::f64(3.4) != 3.0 { return false }
+    if math::round::f64(3.75) != 4.0 { return false }
+    if math::round::f64(0.0 - 3.75) != 0.0 - 4.0 { return false }
+    if math::round::f64(4.0) != 4.0 { return false }
     // Ties below the unit boundary, the region the trunc fast path used to
     // skip and therefore got wrong for every negative fraction.
-    if math::round(0.0 - 0.5) != 0.0 - 1.0 { return false }
-    if math::round(0.0 - 0.75) != 0.0 - 1.0 { return false }
-    if math::round(0.0 - 1.5) != 0.0 - 2.0 { return false }
+    if math::round::f64(0.0 - 0.5) != 0.0 - 1.0 { return false }
+    if math::round::f64(0.0 - 0.75) != 0.0 - 1.0 { return false }
+    if math::round::f64(0.0 - 1.5) != 0.0 - 2.0 { return false }
     return true
 }
 
 @[test]
 pub fn rounding_leaves_non_finite_alone: () :bool {
     set inf = 1.0 / 0.0
-    if math::trunc(inf) != inf { return false }
-    if math::floor(inf) != inf { return false }
-    if math::ceil(inf) != inf { return false }
-    if math::round(inf) != inf { return false }
-    if math::trunc(0.0 - inf) != 0.0 - inf { return false }
+    if math::trunc::f64(inf) != inf { return false }
+    if math::floor::f64(inf) != inf { return false }
+    if math::ceil::f64(inf) != inf { return false }
+    if math::round::f64(inf) != inf { return false }
+    if math::trunc::f64(0.0 - inf) != 0.0 - inf { return false }
     // NaN never compares equal to itself, so a still-NaN result fails == and
     // proves the value was handed back rather than folded into a number.
     set nan = inf - inf
-    set t = math::trunc(nan)
+    set t = math::trunc::f64(nan)
     if t == t { return false }
     return true
 }
@@ -96,10 +96,10 @@ pub fn rounding_leaves_non_finite_alone: () :bool {
 pub fn magnitudes_at_or_above_two_to_52: () :bool {
     // Every f64 at or past 2^52 is already an integer, so the decomposition
     // must hand it back untouched instead of grinding through 52 iterations.
-    if math::trunc(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::floor(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::ceil(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::round(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::trunc::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::floor::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::ceil::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::round::f64(4503599627370496.0) != 4503599627370496.0 { return false }
     return true
 }
 

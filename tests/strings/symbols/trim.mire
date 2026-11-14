@@ -1,0 +1,48 @@
+// Per-symbol suite: kioto::strings::{trim,strip}
+//
+// Whitespace is every byte at or below a space. Inner whitespace is preserved;
+// only the ends are cut.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn trim_success_both_ends: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("trim/spaces", strings::trim("  a  "), "a") { set ok = false }
+    if !use! harness::check_str("trim/leading", strings::trim("  abc"), "abc") { set ok = false }
+    if !use! harness::check_str("trim/trailing", strings::trim("abc  "), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn trim_limit_empty: () :bool {
+    set ok = use! harness::check_str("trim/empty", strings::trim(""), "")
+    return ok
+}
+
+@[test]
+pub fn trim_limit_only_whitespace: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("trim/spaces-only", strings::trim("   "), "") { set ok = false }
+    if !use! harness::check_str("trim/control-run", strings::trim(" \t\n\r "), "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn trim_anomaly_inner_whitespace_preserved: () :bool {
+    set ok = true :bool mut
+    set got = strings::trim(" a\tb ")
+    if !use! harness::check_str("trim/inner-tab", got, "a\tb") { set ok = false }
+    use! harness::anomaly("strings/trim", "inner_whitespace", " a\\tb ", "a\\tb", got, got == "a\tb")
+    return ok
+}
+
+@[test]
+pub fn strip_matches_trim: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("strip/spaces", strings::strip("  a  "), "a") { set ok = false }
+    if !use! harness::check_str("strip/empty", strings::strip(""), "") { set ok = false }
+    if !use! harness::check_str("strip/control-run", strings::strip(" \n\t "), "") { set ok = false }
+    return ok
+}

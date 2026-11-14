@@ -1,0 +1,147 @@
+// Per-symbol suite: kioto::fs::{exists,is_file,read,write,drop,last_error}
+//
+// read is a text reader, not a byte reader: the documented consequence is that
+// a NUL inside the file truncates the result. That case is logged. A missing
+// file and a directory both read as "", so last_error is the only way to tell
+// "empty" from "could not read"; it is asserted where the module documents a
+// code.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn write_then_read_success: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "roundtrip")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    set wrote = fs::write(path, "hello")
+    set content = fs::read(path)
+    set present = fs::exists(path)
+    set regular = fs::is_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/write", wrote) { set ok = false }
+    if !use! harness::check_str("read_write/read", content, "hello") { set ok = false }
+    if !use! harness::check("read_write/exists", present) { set ok = false }
+    if !use! harness::check("read_write/is-file", regular) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn write_limit_empty_file: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "empty")
+    set path = strings::copy(fs::path::join(dir, "empty.txt"))
+    set wrote = fs::write(path, "")
+    set content = fs::read(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/write-empty", wrote) { set ok = false }
+    if !use! harness::check_str("read_write/read-empty", content, "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn write_success_truncates_existing: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "truncate")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "a longer first content")
+    set wrote = fs::write(path, "x")
+    set content = fs::read(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/truncate-write", wrote) { set ok = false }
+    if !use! harness::check_str("read_write/truncate-content", content, "x") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn read_limit_missing_file: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "missing")
+    set path = strings::copy(fs::path::join(dir, "absent.txt"))
+    set content = fs::read(path)
+    set present = fs::exists(path)
+    set regular = fs::is_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_str("read_write/read-missing", content, "") { set ok = false }
+    if !use! harness::check_false("read_write/exists-missing", present) { set ok = false }
+    if !use! harness::check_false("read_write/is-file-missing", regular) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn read_anomaly_nul_truncates: () :bool {
+    // Documented: "a file that contains a NUL byte reads back truncated at
+    // that byte". The file holds three bytes; the text reader returns one.
+    set dir = use! harness::fixture_dir("fs/read_write", "nul")
+    set path = strings::copy(fs::path::join(dir, "nul.bin"))
+    set bytes = strings::concat(strings::concat("a", strings::from_byte(0)), "b")
+    set wrote = fs::write(path, bytes)
+    set content = fs::read(path)
+    set got = strings::len(content)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/nul-write", wrote) { set ok = false }
+    if !use! harness::check_i64("read_write/nul-truncated", got, 1) { set ok = false }
+    use! harness::anomaly("fs/read_write", "nul_truncates", "3 bytes with NUL", "1", strings::from::i64(got), got == 1)
+    return ok
+}
+
+@[test]
+pub fn write_anomaly_missing_parent: () :bool {
+    // The parent does not exist, so the open fails before any byte lands.
+    set dir = use! harness::fixture_dir("fs/read_write", "missing-parent")
+    set path = strings::copy(fs::path::join(dir, "no/such/note.txt"))
+    set wrote = fs::write(path, "x")
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("read_write/missing-parent", wrote) { set ok = false }
+    if !use! harness::check_i64("read_write/missing-parent-code", code, fs::err_not_found()) { set ok = false }
+    use! harness::anomaly("fs/read_write", "missing_parent", "no/such/note.txt", "false + not_found", strings::from::i64(code), code == fs::err_not_found())
+    return ok
+}
+
+@[test]
+pub fn is_file_anomaly_directory: () :bool {
+    // A directory exists but is not a regular file. The two questions are
+    // deliberately separate.
+    set dir = use! harness::fixture_dir("fs/read_write", "directory")
+    set present = fs::exists(dir)
+    set regular = fs::is_file(dir)
+    set content = fs::read(dir)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/dir-exists", present) { set ok = false }
+    if !use! harness::check_false("read_write/dir-is-file", regular) { set ok = false }
+    if !use! harness::check_str("read_write/dir-read", content, "") { set ok = false }
+    use! harness::anomaly("fs/read_write", "read_directory", "fixture dir", "empty + error", strings::from::i64(code), true)
+    return ok
+}
+
+@[test]
+pub fn drop_success_file: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "drop")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "x")
+    set dropped = fs::drop(path)
+    set present = fs::exists(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("read_write/drop", dropped) { set ok = false }
+    if !use! harness::check_false("read_write/drop-gone", present) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn drop_limit_missing_file: () :bool {
+    set dir = use! harness::fixture_dir("fs/read_write", "drop-missing")
+    set path = strings::copy(fs::path::join(dir, "ghost.txt"))
+    set dropped = fs::drop(path)
+    set code = fs::last_error()
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("read_write/drop-missing", dropped) { set ok = false }
+    use! harness::anomaly("fs/read_write", "drop_missing_no_code", "ghost.txt", "not_found", strings::from::i64(code), code == fs::err_not_found())
+    return ok
+}
