@@ -45,3 +45,6 @@ net     = "modules/net"
 log     = "modules/log"
 cli     = "modules/cli"
 crypto  = "modules/crypto"
+
+["owl@lock"]
+version = "3"
