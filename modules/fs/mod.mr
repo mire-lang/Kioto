@@ -205,6 +205,10 @@ pub fn path: () {
     // the first part does not already end in one. An absolute second part is
     // appended, not honoured, so join never escapes the root on its own.
     pub fn join: (a :&str, b :&str) :&str {
+        // An empty first fragment contributes nothing, not a root separator.
+        if len(a) == 0 {
+            return b
+        }
         set last = rt_strings_char_at(a, len(a) - 1)
         if last == 47 {
             return rt_string_concat(a, b)
@@ -214,11 +218,15 @@ pub fn path: () {
     }
 
     // The directory part of a path, or "." when there is no separator. The
-    // separator itself is not included.
+    // separator itself is not included. A leading separator is still a
+    // separator, so dir("/abc") is "/" and dir("/") is "/".
     pub fn dir: (path :&str) :&str {
         set i = len(path) - 1 :i64 mut
-        while i > 0 {
+        while i >= 0 {
             if rt_strings_char_at(path, i) == 47 {
+                if i == 0 {
+                    return "/"
+                }
                 return rt_strings_substr(path, 0, i)
             }
             set i = i - 1
@@ -226,12 +234,17 @@ pub fn path: () {
         return "."
     }
 
-    // The last component of a path, separators not included.
+    // The last component of a path, separators not included. A trailing
+    // separator leaves no component, and "/" has no component either.
     pub fn name: (path :&str) :&str {
-        set i = len(path) - 1 :i64 mut
-        while i > 0 {
+        set n = len(path)
+        set i = n - 1 :i64 mut
+        while i >= 0 {
             if rt_strings_char_at(path, i) == 47 {
-                return rt_strings_substr(path, i + 1, len(path))
+                if i == n - 1 {
+                    return ""
+                }
+                return rt_strings_substr(path, i + 1, n - i - 1)
             }
             set i = i - 1
         }
@@ -240,13 +253,16 @@ pub fn path: () {
 
     // The extension of the last component, dot included, or the empty string
     // when there is none. A leading dot is not an extension: ".gitignore" has
-    // none.
+    // none, and neither do the relative components "." and "..".
     pub fn ext: (path :&str) :&str {
         set n = fs::path::name(path)
+        if n == "." || n == ".." {
+            return ""
+        }
         set i = len(n) - 1 :i64 mut
         while i > 0 {
             if rt_strings_char_at(n, i) == 46 {
-                return rt_strings_substr(n, i, len(n))
+                return rt_strings_substr(n, i, len(n) - i)
             }
             set i = i - 1
         }

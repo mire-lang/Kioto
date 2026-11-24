@@ -324,7 +324,9 @@ pub fn traversal_that_looks_innocent_is_still_denied: () :bool {
     if d == "" {
         return false
     }
-    set sneaky = strings::concat(d, "/../../../../../../etc/hostname")
+    // Seven levels: the fixture is six components below the root, so six
+    // would land exactly on it and "etc/hostname" would still be inside.
+    set sneaky = strings::concat(d, "/../../../../../../../etc/hostname")
     if fs::sandbox::permits(sneaky) {
         use teardown(d)
         return false

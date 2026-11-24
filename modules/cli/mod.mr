@@ -21,6 +21,10 @@ pub fn parse: (raw :&vec[str]) :map[str str] {
             set i += 1
             if i < vec::len(raw) {
                 set result[flag] = vec::get::str(raw i)
+            } else {
+                // A bare flag is a presence marker. Storing "1" keeps the
+                // table homogeneous and makes `map::has` the natural test.
+                set result[flag] = "1"
             }
         }
         set i += 1

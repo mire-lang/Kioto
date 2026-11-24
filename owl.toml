@@ -23,7 +23,6 @@ cache = "bin/.cache"
 
 [dependencies]
 mire = { path = "~/.owl/libs/mire" }
-kioto = { path = "." }
 
 [security]
 mode = "strict"

@@ -436,14 +436,14 @@ sources are now `modules/**/*.mr` behind a single `src/mod.mr` entry point.
 
 ### Docs
 
-- **`lists::set` es el workaround correcto del bug de `vec[i64]`**: la
-  asignación por índice nativa de Avenys (`set vec at idx = val`) corrumpe
-  vectores dinámicos silenciosamente (lecturas posteriores devuelven
-  valores erróneos/desplazados). Reproducido en Avenys/Mire v3.15–3.16;
-  documentado en `avenys/docs/VEC_INDEXED_ASSIGN_BUG.md`.
-  `lists::set(list, idx, val)` enruta a `rt_lists_set_i64` (runtime C)
-  y escribe el slot correcto sin corromper. Cualquier código kioto que
-  escriba en `vec[]` por índice debe usar `lists::set`, no la sintáxis nativa.
+- **`lists::set` is the correct workaround for the `vec[i64]` bug**: Avenys's
+  native index assignment (`set vec at idx = val`) silently corrupts dynamic
+  vectors (later reads return wrong/shifted values). Reproduced on
+  Avenys/Mire v3.15–3.16 and documented in
+  `avenys/docs/VEC_INDEXED_ASSIGN_BUG.md`.
+  `lists::set(list, idx, val)` routes to `rt_lists_set_i64` (C runtime)
+  and writes the correct slot without corrupting the vector. Any kioto code
+  that writes to `vec[]` by index must use `lists::set`, not native syntax.
 
 ## [2.3.0] — 2026-07-15
 

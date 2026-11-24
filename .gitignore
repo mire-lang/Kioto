@@ -7,6 +7,12 @@ target/
 tests/log/
 *.log
 
+# Per-symbol suites: fixtures are throwaway, logs are generated per run.
+# The .gitkeep is the only tracked file inside a logs/ directory.
+tests/**/fixtures/tmp/
+tests/**/logs/
+!tests/**/logs/.gitkeep
+
 # Working plan (session-local, never committed)
 todo.md
 
