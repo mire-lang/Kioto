@@ -1,11 +1,11 @@
-// Kioto 3.0.0 - math::float.
+// Kioto 3.1.0 - math::float.
 //
 // Binary64 predicates and the rounding family, in pure Mire with no rt_math_*
 // extern, so the module links in a runtime = "none" build.
 //
 // Public symbols (20):
 //   abs sign min max copysign
-//   trunc fract ceil floor round
+//   trunc::f64 fract ceil::f64 floor::f64 round::f64
 //   isNan isInf isFinite isNormal isSubnormal integral_magnitude
 //   toBits fromBits ulp epsilon
 //
@@ -24,7 +24,7 @@
 // pow are rewritten to PAL externs when called bare, so the internal callers go
 // through magnitude_f64 and the public ones are only reached as
 // math::float::abs. See the note on magnitude_f64.
-
+//
 // The two powers of two this module needs are written as literals at their use
 // sites rather than declared here as cons, and that is deliberate.
 //
@@ -103,8 +103,9 @@ pub fn sign: (x :f64) :f64 {
     return 0.0
 }
 
-// Minimum of two values. NaN propagates, matching IEEE minNum's quiet-NaN rule
-// rather than silently picking a side.
+// The smaller of two floats, NaN-propagating: if either argument is NaN the
+// answer is NaN rather than the other number, so a NaN cannot be silently
+// dropped by a min over a list.
 pub fn min: (a :f64, b :f64) :f64 {
     if a != a {
         return a
@@ -118,7 +119,7 @@ pub fn min: (a :f64, b :f64) :f64 {
     return b
 }
 
-// Maximum of two values. NaN propagates.
+// The larger of two floats, NaN-propagating in the same way as math::min.
 pub fn max: (a :f64, b :f64) :f64 {
     if a != a {
         return a
@@ -148,8 +149,9 @@ pub fn copysign: (a :f64, b :f64) :f64 {
     return mag
 }
 
-// Drop the fractional part, rounding toward zero.
-// Internal implementation to avoid conflict with compiler builtin.
+// ── Rounding family (Mire convention: trunc::f64, etc.) ──────────────────
+
+// Internal trunc implementation, shared by trunc/floor/ceil/round.
 fn trunc_impl: (x :f64) :f64 {
     if !integral_magnitude(x) {
         return x
@@ -174,39 +176,16 @@ fn trunc_impl: (x :f64) :f64 {
     return t
 }
 
-// Truncate toward zero (f64).
-pub fn trunc_f64: (x :f64) :f64 {
-    if !integral_magnitude(x) {
-        return x
+// Drop the fractional part, rounding toward zero.
+pub fn trunc: () {
+    pub fn f64: (x :f64) :f64 {
+        return trunc_impl(x)
     }
-    set neg = x < 0.0
-    set a = if neg { 0.0 - x } else { x } :f64 mut
-    if a < 1.0 {
-        return 0.0
-    }
-    set t = 0.0 :f64 mut
-    set p = 2251799813685248.0 :f64 mut
-    while p >= 1.0 {
-        if a >= p {
-            set a = a - p
-            set t = t + p
-        }
-        set p = p * 0.5
-    }
-    if neg {
-        return 0.0 - t
-    }
-    return t
 }
 
-// Fractional part, x - trunc(x). Keeps the sign of x, so fract(-2.5) is -0.5.
+// Fractional part: x - trunc(x). Sign follows x.
 pub fn fract: (x :f64) :f64 {
     if !integral_magnitude(x) {
-        // Outside the decomposition range the rounding family hands x back
-        // unchanged, because x is already an integer. The fractional part of an
-        // integer is zero, not the integer, so fract has to answer 0.0 here
-        // rather than inherit that shortcut. NaN and the infinities keep their
-        // own values, matching the rest of the family.
         if x != x {
             return x
         }
@@ -215,104 +194,68 @@ pub fn fract: (x :f64) :f64 {
         }
         return 0.0
     }
-    return x - trunc_f64(x)
-}
-
-// Smallest integer not less than x.
-pub fn ceil_f64: (x :f64) :f64 {
-    if !integral_magnitude(x) {
-        return x
-    }
-    set t = trunc_f64(x)
-    if t == x {
-        return t
-    }
-    if x > 0.0 {
-        return t + 1.0
-    }
-    return t
+    return x - trunc_impl(x)
 }
 
 // Largest integer not greater than x.
-pub fn floor_f64: (x :f64) :f64 {
-    if !integral_magnitude(x) {
-        return x
-    }
-    set t = trunc_f64(x)
-    if t == x {
+pub fn ceil: () {
+    pub fn f64: (x :f64) :f64 {
+        set t = trunc_impl(x)
+        if t == x {
+            return t
+        }
+        if x > 0.0 {
+            return t + 1.0
+        }
         return t
     }
-    if x < 0.0 {
-        return t - 1.0
-    }
-    return t
 }
 
-// Nearest integer, halves away from zero: round(2.5) is 3, round(-2.5) is -3.
-// This is not banker's rounding, and the difference is deliberate and
-// observable at every .5.
-pub fn round_f64: (x :f64) :f64 {
-    if !integral_magnitude(x) {
-        return x
-    }
-    set t = trunc_f64(x)
-    if t == x {
+// Smallest integer not less than x.
+pub fn floor: () {
+    pub fn f64: (x :f64) :f64 {
+        set t = trunc_impl(x)
+        if t == x {
+            return t
+        }
+        if x < 0.0 {
+            return t - 1.0
+        }
         return t
     }
-    set d = x - t
-    if d >= 0.5 {
-        return t + 1.0
+}
+
+// Nearest integer, halves away from zero (round(2.5) = 3, round(-2.5) = -3).
+pub fn round: () {
+    pub fn f64: (x :f64) :f64 {
+        set t = trunc_impl(x)
+        if t == x {
+            return t
+        }
+        set d = x - t
+        if d >= 0.5 {
+            return t + 1.0
+        }
+        if d <= 0.0 - 0.5 {
+            return t - 1.0
+        }
+        return t
     }
-    if d <= 0.0 - 0.5 {
-        return t - 1.0
-    }
-    return t
 }
 
-// Not a number. True for the only value that is not equal to itself, which is
-// why the test is written as x != x and not as a comparison.
-pub fn isNan: (x :f64) :bool {
-    return x != x
-}
-
-// Infinite, of either sign. Comparing against 1.0/0.0 works because dividing
-// by zero is the one operation IEEE 754 requires to produce an infinity.
-pub fn isInf: (x :f64) :bool {
-    return x == 1.0 / 0.0 || x == -1.0 / 0.0
-}
-
-// Neither NaN nor infinite: the question worth asking before a division.
-pub fn isFinite: (x :f64) :bool {
-    return !isNan(x) && !isInf(x)
-}
-
-// A normal number is finite, non-zero, and not subnormal: its magnitude is at
-// least 2^-1022, so it carries a full 53 bits of precision.
+pub fn isNan: (x :f64) :bool { return x != x }
+pub fn isInf: (x :f64) :bool { return x == 1.0 / 0.0 || x == 0.0 - 1.0 / 0.0 }
+pub fn isFinite: (x :f64) :bool { return !(isNan(x) || isInf(x)) }
 pub fn isNormal: (x :f64) :bool {
-    if !isFinite(x) {
-        return false
-    }
-    if x == 0.0 {
-        return false
-    }
-    return magnitude_f64(x) >= pow2(0 - 1022)
+    if !isFinite(x) { return false }
+    set m = magnitude_f64(x)
+    return m >= 2.2250738585072014e-308 && m < 1.7976931348623157e308
 }
-
-// Subnormal: finite, non-zero, and smaller than the smallest normal. The
-// leading bits of the significand are zero, so precision degrades towards zero.
 pub fn isSubnormal: (x :f64) :bool {
-    if !isFinite(x) {
-        return false
-    }
-    if x == 0.0 {
-        return false
-    }
-    return magnitude_f64(x) < pow2(0 - 1022)
+    if !isFinite(x) { return false }
+    set m = magnitude_f64(x)
+    return m > 0.0 && m < 2.2250738585072014e-308
 }
-
-// Gap between x and its neighbour, 2^(e - 52) where e is the exponent of x.
-// NaN reports NaN, the infinities report Inf, and 0.0 reports the smallest
-// subnormal, which is the true gap there.
 pub fn ulp: (x :f64) :f64 {
     if x != x {
         return nan()
@@ -349,35 +292,16 @@ fn pow2: (k :i64) :f64 {
             set i = i + 1
         }
         return out
+    } else {
+        set out = 1.0 :f64 mut
+        set i = 0 :i64 mut
+        while i > k {
+            set out = out * 0.5
+            set i = i - 1
+        }
+        return out
     }
-    set out = 1.0 :f64 mut
-    set i = 0 :i64 mut
-    while i < 0 - k {
-        set out = out * 0.5
-        set i = i + 1
-    }
-    return out
 }
-
-// Raw IEEE-754 bit pattern of x, as the i64 that holds it. The inverse of
-// fromBits, and exact for every input including NaN and the infinities,
-// because it reinterprets rather than converts.
-//
-// This is the escape hatch from the arithmetic above: hashing a float,
-// seeding a PRNG from one, or writing a float to a file byte-for-byte all need
-// the bits, and going through the round trip would lose NaN payloads and turn
-// -0.0 into 0.0.
-pub fn toBits: (x :f64) :i64 {
-    return bits::i64(x)
-}
-
-// The f64 whose bit pattern is b. Exact inverse of toBits.
-pub fn fromBits: (b :i64) :f64 {
-    return bits::f64(b)
-}
-
-// The machine epsilon, 2^-52: the smallest gap between 1.0 and the next
-// representable double. Written in scientific notation because that is what the
-// value is; the same number as math::consts::epsilon.
+pub fn toBits: (x :f64) :i64 { return bits::i64(x) }
+pub fn fromBits: (b :i64) :f64 { return bits::f64(b) }
 pub fn epsilon: () :f64 { return 2.220446049250313e-16 }
-
