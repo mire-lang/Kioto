@@ -7,19 +7,29 @@
 - **`kioto::strings` byte construction** — binary-safe constructors, so strings
   can carry arbitrary bytes instead of stopping at the first NUL.
 - **`math::trig`** — `sin cos tan asin acos atan atan2 degrees radians`, built
-  in Mire on top of the existing `_f64` helpers.
+  in Mire on top of the existing float helpers.
 
 ### Changed
 - **PAL access goes through typed handles.** `net` and `fs` no longer pass raw
   pointers across the runtime boundary; scalar handle bridges keep ownership
   inside the runtime.
-- **Math functions that collided with builtins were renamed with a `_f64`
-  suffix**, and `trig` gained local `floor`/`round` implementations so the
-  module does not depend on the removed `rt_math_*` externs.
+- **Math functions that collided with builtins moved into the `::f64`
+  namespace** (`math::trunc::f64`, `math::floor::f64`, `math::ceil::f64`,
+  `math::round::f64`, and the same names under `math::float`). This replaces
+  the earlier `_f64` suffix. `trig` gained local `floor`/`round`
+  implementations so the module does not depend on the removed `rt_math_*`
+  externs.
 - **`math/owl.toml` exports were corrected** — duplicate entries caused a
   cyclic load; each namespace segment now maps to exactly one submodule.
 - **Stale `.gitkeep` files removed** (26) now that every module directory has
   real sources.
+
+### Removed
+- **`kioto::json` and `kioto::toml`.** `ilogical::format` is the single owner
+  of JSON and TOML in the ecosystem. Kioto no longer ships `modules/json`,
+  `modules/toml` or their per-symbol suites, and drops the dependency on the
+  C codecs.
+- **The `kioto-fsw-empty` fixture**, a leftover empty directory.
 
 ### Fixed
 - `kioto::status()` reports the real package version instead of the 2.x string.
