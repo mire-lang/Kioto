@@ -1,36 +1,38 @@
 # Inventory
 
-Every public symbol in Kioto 3.0.0, what is deliberately absent, and the rules
-that explain both. Counts come from the source, not from this document: the
-reference pages under [`symbols/`](symbols/) are generated from the same pass
-that found them.
+Every public symbol in Kioto 3.1.0, what is deliberately absent, and the rules
+that explain both. Counts come from the source, not from this document: a
+function is a `pub fn` that returns a value or takes parameters, and a
+namespace group (`pub fn x: () {`) is counted separately. The reference pages
+under [`symbols/`](symbols/) document the same surface and are updated by hand,
+so the source and this inventory are authoritative when they disagree.
 
 ## At a glance
 
-244 public functions across 13 top-level modules, plus 23 namespace groups.
+333 public functions across 13 top-level modules, plus 36 namespace groups.
 
 | Module | Symbols | What it is for |
 | --- | ---: | --- |
-| [`math`](symbols/math.md) | 89 | Pure numbers: float, int, constants, sequences, descriptive statistics, summation, reproducible random |
-| [`fs`](symbols/fs.md) | 36 | Whole-file helpers plus capability handles rooted at a directory |
-| [`strings`](symbols/strings.md) | 32 | Byte-oriented text operations |
-| [`crypto`](symbols/crypto.md) | 30 | Hashing, encoding, checksums, secure random, Ed25519 |
-| [`net`](symbols/net.md) | 17 | TCP and UDP sockets |
+| [`math`](symbols/math.md) | 121 | Pure numbers: float, int, constants, sequences, descriptive statistics, summation, reproducible random |
+| [`fs`](symbols/fs.md) | 89 | Whole-file helpers plus capability handles rooted at a directory |
+| [`strings`](symbols/strings.md) | 26 | Byte-oriented text operations |
+| [`crypto`](symbols/crypto.md) | 28 | Hashing, encoding, checksums, secure random, Ed25519 |
+| [`net`](symbols/net.md) | 32 | TCP and UDP sockets |
 | [`proc`](symbols/proc.md) | 14 | Running other programs, without a shell |
-| [`async`](symbols/async.md) | 10 | Pipes and a thin process layer |
-| [`time`](symbols/time.md) | 5 | Wall clock and elapsed time |
+| [`async`](symbols/async.md) | 8 | Pipes and a thin process layer |
+| [`time`](symbols/time.md) | 4 | Wall clock and elapsed time |
 | [`env`](symbols/env.md) | 3 | Environment variables and the argument vector |
 | [`log`](symbols/log.md) | 3 | Three plain lines on stdout |
 | [`mem`](symbols/mem.md) | 3 | Machine memory and process memory |
 | [`cli`](symbols/cli.md) | 1 | Argument vector to lookup table |
 | [`cpu`](symbols/cpu.md) | 1 | Logical core count |
-| **Total** | **255** | |
+| **Total** | **333** | |
 
 ### math
 
 | Submodule | Symbols |
 | --- | ---: |
-| root | 14 |
+| root | 26 |
 | `float` | 20 |
 | `int` | 18 |
 | `consts` | 12 |
@@ -39,16 +41,17 @@ that found them.
 | `seq` | 6 |
 | `random` | 5 |
 | `sum` | 4 |
+| `trig` | 9 |
 
-Five further submodules — `complex`, `decimal`, `hyperbolic`, `special` and
-`trig` — exist as two-line placeholders. They are not exported, not loaded and
-not reachable; see [Not implemented](#not-implemented).
+Four further submodules — `complex`, `decimal`, `hyperbolic` and `special` —
+exist as two-line placeholders. They are not exported, not loaded and not
+reachable; see [Not implemented](#not-implemented).
 
 ### crypto
 
 | Submodule | Symbols |
 | --- | ---: |
-| `sign::ed25519` | 11 |
+| `sign::ed25519` | 9 |
 | `checksum` | 5 |
 | `hash` | 4 |
 | `encode::base64` | 3 |
@@ -73,10 +76,10 @@ After `load kioto` the namespaces are available flattened, so both
 `crypto::hash::sha256`. Loading a submodule directly — `load kioto::crypto` —
 is the narrower and more explicit habit, and it is what the examples use.
 
-## The nine public structs
+## The thirteen public structs
 
-The 244 functions above are the callable surface. Nine structs are public as
-well, and they are what the handles in that table actually are: an opaque
+The 333 functions above are the callable surface. Thirteen structs are public
+as well, and they are what the handles in that table actually are: an opaque
 wrapper around a PAL handle, with no field a caller should read.
 
 | Struct | Module | Created by | Note |
@@ -90,6 +93,9 @@ wrapper around a PAL handle, with no field a caller should read.
 | `File` | `fs` | `fs::file::open::*` | Consumed by `file::read` |
 | `Dir` | `fs` | `fs::dir::open` | |
 | `SecretKey`, `PublicKey` | `crypto` | `ed25519::secret::new` | Opaque; a `SecretKey` is consumed by its first use |
+| `WebSocket` | `net` | `net::ws::connect` | Passed to `send_*`, `recv_frame` and `close` by `&` |
+| `Server` | `net` | `net::ws::serve` | `accept` borrows it; `close` consumes it |
+| `Frame` | `net` | `net::ws::recv_frame` | One decoded WebSocket frame |
 
 There are no public enums and no public constants — a `cons` is not readable
 across a package boundary, which is why every constant a consumer needs is
@@ -123,12 +129,12 @@ and does not wrap it.
 
 Kioto defines no macros. `owl.toml` lists five names — `assert`, `assert_eq`,
 `assert_ne`, `dbg`, `trace_i64` — under `[security] macros`, but all five are
-defined in `mire/core/macros/`. The list is an allowlist of what project code
+defined in `mire/src/aux/macros/`. The list is an allowlist of what project code
 may invoke, not a declaration of what Kioto provides.
 
 ### No stubs in the exported surface
 
-Every one of the 244 symbols resolves and has a body. Six files under
+Every one of the 333 symbols resolves and has a body. Four files under
 `modules/math/` are two-line placeholders and are the only unfinished code in
 the package.
 

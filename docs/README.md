@@ -12,8 +12,9 @@ Start here, then go as deep as the task needs.
 
 ## Reference
 
-[Symbol reference](symbols/) — all 244 public functions, one page per module,
-generated from the source comments so it cannot drift from the code.
+[Symbol reference](symbols/) — the documented surface, one page per module.
+The reference pages are updated by hand; when a count disagrees, the source and
+the [inventory](inventory.md) are authoritative.
 
 | | |
 | --- | --- |
