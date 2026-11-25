@@ -1,4 +1,4 @@
-// Kioto 3.0.0 - math::random.
+// Kioto 3.1.0 - math::random.
 //
 // Deterministic pseudo-random numbers in pure Mire, with no extern.
 //

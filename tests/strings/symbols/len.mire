@@ -1,0 +1,35 @@
+// Per-symbol suite: kioto::strings::len
+//
+// Cases: success (ASCII), limit (empty), anomaly (multi-byte UTF-8 counts
+// bytes, not characters). The anomaly case is logged because callers routinely
+// assume codepoints.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn len_success_ascii: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("len/ascii", strings::len("hello"), 5) { set ok = false }
+    if !use! harness::check_i64("len/spaces", strings::len("a b"), 3) { set ok = false }
+    if !use! harness::check_i64("len/punctuation", strings::len("a,b.c"), 5) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn len_limit_empty: () :bool {
+    set ok = use! harness::check_i64("len/empty", strings::len(""), 0)
+    return ok
+}
+
+@[test]
+pub fn len_anomaly_utf8_counts_bytes: () :bool {
+    set ok = true :bool mut
+    set two = strings::len("ñ")
+    set mixed = strings::len("añb")
+    if !use! harness::check_i64("len/utf8/two_bytes", two, 2) { set ok = false }
+    if !use! harness::check_i64("len/utf8/mixed", mixed, 4) { set ok = false }
+    use! harness::anomaly("strings/len", "utf8_bytes", "ñ", "2", strings::from::i64(two), two == 2)
+    use! harness::anomaly("strings/len", "utf8_mixed", "añb", "4", strings::from::i64(mixed), mixed == 4)
+    return ok
+}

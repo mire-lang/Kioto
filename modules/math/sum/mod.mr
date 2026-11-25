@@ -1,4 +1,4 @@
-// Kioto 3.0.0 - math::sum.
+// Kioto 3.1.0 - math::sum.
 //
 // List reductions over f64 vectors, where the accuracy of the reduction is the
 // whole point.

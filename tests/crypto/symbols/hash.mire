@@ -1,0 +1,103 @@
+// Per-symbol suite: kioto::crypto::hash::{sha256,sha512,sha256_file,sha512_file}
+//
+// Published vectors, not values recomputed with the same implementation. The
+// file variants are checked against the in-memory variant using a fixture that
+// holds exactly the same bytes.
+
+load kioto
+load! /tests/_support/harness
+
+cons SHA256_EMPTY = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+cons SHA256_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+cons SHA256_FOX = "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"
+cons SHA512_ABC = "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+cons SHA512_EMPTY = "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+
+@[test]
+pub fn sha256_success_abc: () :bool {
+    set got = crypto::hash::sha256("abc")
+    set ok = true :bool mut
+    if !use! harness::check_str("sha256/abc", got, SHA256_ABC) { set ok = false }
+    if !use! harness::check_i64("sha256/abc-len", strings::len(got), 64) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sha256_limit_empty: () :bool {
+    set got = crypto::hash::sha256("")
+    set ok = true :bool mut
+    if !use! harness::check_str("sha256/empty", got, SHA256_EMPTY) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sha256_anomaly_embedded_newline: () :bool {
+    set got = crypto::hash::sha256("a\nb")
+    set ok = true :bool mut
+    if !use! harness::check_str("sha256/newline", got, "7e18f737311b2dc3b2f269dd78396b0351f14fb66efa879f768cb23181883c78") { set ok = false }
+    use! harness::anomaly("crypto/hash", "sha256_embedded_newline", "a\\nb", "7e18f737...83c78", got, strings::len(got) == 64)
+    return ok
+}
+
+@[test]
+pub fn sha512_success_abc: () :bool {
+    set got = crypto::hash::sha512("abc")
+    set ok = true :bool mut
+    if !use! harness::check_str("sha512/abc", got, SHA512_ABC) { set ok = false }
+    if !use! harness::check_i64("sha512/abc-len", strings::len(got), 128) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sha512_limit_empty: () :bool {
+    set ok = use! harness::check_str("sha512/empty", crypto::hash::sha512(""), SHA512_EMPTY)
+    return ok
+}
+
+@[test]
+pub fn sha512_anomaly_long_input: () :bool {
+    set msg = "The quick brown fox jumps over the lazy dog"
+    set got = crypto::hash::sha512(msg)
+    set ok = true :bool mut
+    if !use! harness::check_str("sha512/fox", got, "07e547d9586f6a73f73fbac0435ed76951218fb7d0c8d788a309d785436bbb642e93a252a954f23912547d1e8a3b5ed6e1bfd7097821233fa0538f3db854fee6") { set ok = false }
+    use! harness::anomaly("crypto/hash", "sha512_long_input", "43 bytes", "07e547d9...4fee6", got, strings::len(got) == 128)
+    return ok
+}
+
+@[test]
+pub fn sha256_file_matches_text: () :bool {
+    set dir = use! harness::fixture_dir("crypto/hash", "sha256-file")
+    set path = fs::path::join(dir, "abc.txt")
+    set wrote = fs::write(path, "abc")
+    set got = crypto::hash::sha256_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("sha256_file/wrote", wrote) { set ok = false }
+    if !use! harness::check_str("sha256_file/abc", got, SHA256_ABC) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sha512_file_matches_text: () :bool {
+    set dir = use! harness::fixture_dir("crypto/hash", "sha512-file")
+    set path = fs::path::join(dir, "abc.txt")
+    set wrote = fs::write(path, "abc")
+    set got = crypto::hash::sha512_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("sha512_file/wrote", wrote) { set ok = false }
+    if !use! harness::check_str("sha512_file/abc", got, SHA512_ABC) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn hash_anomaly_missing_file_is_empty: () :bool {
+    set dir = use! harness::fixture_dir("crypto/hash", "missing")
+    set path = fs::path::join(dir, "not-there.txt")
+    set got = crypto::hash::sha256_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_str("hash/missing-file", got, "") { set ok = false }
+    use! harness::anomaly("crypto/hash", "missing_file", "not-there.txt", "", got, got == "")
+    return ok
+}

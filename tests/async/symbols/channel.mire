@@ -1,0 +1,73 @@
+// Per-symbol suite: kioto::async::channel::{create,send,recv,close}
+//
+// A byte pipe. The receive buffer must have room: strings::repeat("\0" n).
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn create_send_recv_close: () :bool {
+    set ch = async::channel::create()
+    set handle = ch.handle
+    set ok = true :bool mut
+
+    if handle > 0 {
+        set sent = async::channel::send(ch, "hello")
+        if !use! harness::check_i64("async/channel/send", sent, 5) { set ok = false }
+
+        set buf = strings::repeat("\0", 16) :str mut
+        set recv = async::channel::recv(ch, buf, 16)
+        if !use! harness::check_i64("async/channel/recv", recv, 5) { set ok = false }
+        // buf contains "hello" followed by zeros. Check only the received portion.
+        set data = strings::substr(buf, 0, recv)
+        if !use! harness::check_str("async/channel/data", data, "hello") { set ok = false }
+
+        // Recv again should return 0 (end of stream) after close
+        use async::channel::close(ch)
+        set buf2 = strings::repeat("\0", 16) :str mut
+        set recv2 = async::channel::recv(ch, buf2, 16)
+        if !use! harness::check_i64("async/channel/recv-after-close", recv2, 0) { set ok = false }
+    } else {
+        // Channel creation failed (unlikely but possible)
+        if !use! harness::check_i64("async/channel/create-failed", handle, 0) { set ok = false }
+    }
+    return ok
+}
+
+@[test]
+pub fn send_recv_limit_zero_cap: () :bool {
+    set ch = async::channel::create()
+    if ch.handle > 0 {
+        set buf = strings::repeat("\0", 0) :str mut
+        set recv = async::channel::recv(ch, buf, 0)
+        use async::channel::close(ch)
+        // max_len=0 should return 0 bytes read
+        return use! harness::check_i64("async/channel/zero-cap", recv, 0)
+    }
+    return true
+}
+
+@[test]
+pub fn send_recv_anomaly_negative_cap: () :bool {
+    set ch = async::channel::create()
+    if ch.handle > 0 {
+        set buf = strings::repeat("\0", 16) :str mut
+        set recv = async::channel::recv(ch, buf, -1)
+        use async::channel::close(ch)
+        set ok = true :bool mut
+        // Negative cap returns 0 (not -1) in the current implementation
+        if !use! harness::check_i64("async/channel/negative-cap", recv, 0) { set ok = false }
+        use! harness::anomaly("async/channel", "negative_cap", "-1", "0", strings::from::i64(recv), recv == 0)
+        return ok
+    }
+    return true
+}
+
+@[test]
+pub fn close_smoke: () :bool {
+    set ch = async::channel::create()
+    if ch.handle > 0 {
+        use async::channel::close(ch)
+    }
+    return true
+}

@@ -1,0 +1,60 @@
+// Per-symbol suite: kioto::time::{now::ms,now::ns,elapsed,mark}
+//
+// There is no sleep in this API yet, so none is tested. Wall-clock readings are
+// sanity-ranged rather than pinned: the contract is "epoch units", not a value.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn now_ms_is_epoch_milliseconds: () :bool {
+    // 2020-01-01 .. 2100-01-01. A clock outside that range means the unit or
+    // the epoch is wrong, which is the failure this catches.
+    set ok = use! harness::check_between("time/now_ms", time::now::ms(), 1577836800000, 4102444800000)
+    return ok
+}
+
+@[test]
+pub fn now_ns_agrees_with_now_ms: () :bool {
+    set ns = time::now::ns()
+    set ms = time::now::ms()
+    set delta = ns / 1000000 - ms
+    set ok = use! harness::check_between("time/ns_vs_ms", delta, -2000, 2000)
+    return ok
+}
+
+@[test]
+pub fn mark_then_elapsed_is_small_and_non_negative: () :bool {
+    set start = time::mark()
+    set dt = time::elapsed(start)
+    set ok = use! harness::check_between("time/elapsed/mark", dt, 0, 5000)
+    return ok
+}
+
+@[test]
+pub fn elapsed_limit_future_mark_is_negative: () :bool {
+    // elapsed subtracts in one direction on purpose: a start in the future
+    // gives a negative duration rather than clamping to zero.
+    set dt = time::elapsed(time::now::ms() + 60000)
+    set ok = use! harness::check_between("time/elapsed/future", dt, -70000, -50000)
+    return ok
+}
+
+@[test]
+pub fn now_ns_is_non_decreasing_within_a_tolerance: () :bool {
+    // Wall clock can be stepped by NTP, so the assertion allows a small
+    // backwards step instead of demanding a strictly monotonic reading.
+    set first = time::now::ns()
+    set second = time::now::ns()
+    set ok = use! harness::check("time/ns/ordered", second >= first - 1000000)
+    return ok
+}
+
+@[test]
+pub fn elapsed_anomaly_zero_mark_returns_the_epoch_age: () :bool {
+    set got = time::elapsed(0)
+    set ok = true :bool mut
+    if !use! harness::check("time/elapsed/zero-mark", got > 1577836800000) { set ok = false }
+    use! harness::anomaly("time/elapsed", "zero_mark", "0", "epoch age", strings::from::i64(got), got > 1577836800000)
+    return ok
+}

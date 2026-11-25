@@ -1,0 +1,111 @@
+// Per-symbol suite: public math constants
+//
+// math::pi() and friends are the flat accessors added on top of
+// math::consts. The constants must agree between both paths, because a
+// consumer may reach either and a drift between them is silent.
+
+load kioto
+load! /tests/_support/harness
+
+fn feq: (a :f64, b :f64) :bool {
+    set diff = if a > b { a - b } else { b - a }
+    return diff < 0.000000000001
+}
+
+@[test]
+pub fn pi_success: () :bool {
+    return use! harness::check("math/public/pi", feq(math::pi(), 3.141592653589793))
+}
+
+@[test]
+pub fn tau_success: () :bool {
+    return use! harness::check("math/public/tau", feq(math::tau(), 6.283185307179586))
+}
+
+@[test]
+pub fn e_success: () :bool {
+    return use! harness::check("math/public/e", feq(math::e(), 2.718281828459045))
+}
+
+@[test]
+pub fn phi_success: () :bool {
+    return use! harness::check("math/public/phi", feq(math::phi(), 1.618033988749895))
+}
+
+@[test]
+pub fn golden_success: () :bool {
+    return use! harness::check("math/public/golden", feq(math::golden(), 0.618033988749895))
+}
+
+@[test]
+pub fn squares_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/public/sqrt2", feq(math::sqrt2(), 1.4142135623730951)) { set ok = false }
+    if !use! harness::check("math/public/sqrt3", feq(math::sqrt3(), 1.7320508075688772)) { set ok = false }
+    if !use! harness::check("math/public/sqrt5", feq(math::sqrt5(), 2.23606797749979)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn logs_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/public/ln2", feq(math::ln2(), 0.6931471805599453)) { set ok = false }
+    if !use! harness::check("math/public/ln10", feq(math::ln10(), 2.302585092994046)) { set ok = false }
+    if !use! harness::check("math/public/log2e", feq(math::log2e(), 1.4426950408889634)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn epsilon_success: () :bool {
+    return use! harness::check("math/public/epsilon", feq(math::epsilon(), 2.220446049250313e-16))
+}
+
+@[test]
+pub fn flat_and_submodule_agree: () :bool {
+    // Two reachable paths, one value. A mismatch means the flat wrapper
+    // drifted from the definition site.
+    set ok = true :bool mut
+    if !use! harness::check("math/public/pi==consts", math::pi() == math::consts::pi()) { set ok = false }
+    if !use! harness::check("math/public/tau==consts", math::tau() == math::consts::tau()) { set ok = false }
+    if !use! harness::check("math/public/e==consts", math::e() == math::consts::e()) { set ok = false }
+    if !use! harness::check("math/public/phi==consts", math::phi() == math::consts::phi()) { set ok = false }
+    if !use! harness::check("math/public/golden==consts", math::golden() == math::consts::golden()) { set ok = false }
+    if !use! harness::check("math/public/sqrt2==consts", math::sqrt2() == math::consts::sqrt2()) { set ok = false }
+    if !use! harness::check("math/public/sqrt3==consts", math::sqrt3() == math::consts::sqrt3()) { set ok = false }
+    if !use! harness::check("math/public/sqrt5==consts", math::sqrt5() == math::consts::sqrt5()) { set ok = false }
+    if !use! harness::check("math/public/ln2==consts", math::ln2() == math::consts::ln2()) { set ok = false }
+    if !use! harness::check("math/public/ln10==consts", math::ln10() == math::consts::ln10()) { set ok = false }
+    if !use! harness::check("math/public/log2e==consts", math::log2e() == math::consts::log2e()) { set ok = false }
+    if !use! harness::check("math/public/epsilon==consts", math::epsilon() == math::consts::epsilon()) { set ok = false }
+    use! harness::anomaly("math/public", "flat_and_submodule_agree", "math::X vs math::consts::X", "bit-identical", "compared twelve pairs", ok)
+    return ok
+}
+
+@[test]
+pub fn identities_limit: () :bool {
+    // The constants have to satisfy the identities they are named for; a
+    // correctly typed but wrong number would pass the literal checks above
+    // only if both copies were wrong in the same way.
+    set ok = true :bool mut
+    if !use! harness::check("math/public/tau==2pi", feq(math::tau(), math::pi() * 2.0)) { set ok = false }
+    if !use! harness::check("math/public/golden==phi-1", feq(math::golden(), math::phi() - 1.0)) { set ok = false }
+    if !use! harness::check("math/public/log2e==1/ln2", feq(math::log2e(), 1.0 / math::ln2())) { set ok = false }
+    if !use! harness::check("math/public/sqrt2^2", feq(math::sqrt2() * math::sqrt2(), 2.0)) { set ok = false }
+    if !use! harness::check("math/public/sqrt3^2", feq(math::sqrt3() * math::sqrt3(), 3.0)) { set ok = false }
+    if !use! harness::check("math/public/sqrt5^2", feq(math::sqrt5() * math::sqrt5(), 5.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn epsilon_is_the_gap_above_one: () :bool {
+    // epsilon is the distance from 1.0 to the next double. Half of it must
+    // round away, and the full value must not.
+    set one = 1.0
+    set next = one + math::epsilon()
+    set half = one + math::epsilon() / 2.0
+    set ok = true :bool mut
+    if !use! harness::check("math/public/epsilon-grows", next > one) { set ok = false }
+    if !use! harness::check_str("math/public/epsilon-half-rounds", strings::from::f64(half), strings::from::f64(one)) { set ok = false }
+    use! harness::anomaly("math/public", "epsilon_gap", "1.0 + eps/2", "1.0", strings::from::f64(half), half == one)
+    return ok
+}

@@ -1,0 +1,35 @@
+// Per-symbol suite: kioto::strings::repeat
+//
+// A count of zero or less is the empty string, not an error and not one copy.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn repeat_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("repeat/three", strings::repeat("ab", 3), "ababab") { set ok = false }
+    if !use! harness::check_str("repeat/one", strings::repeat("ab", 1), "ab") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn repeat_limit_zero: () :bool {
+    set ok = use! harness::check_str("repeat/zero", strings::repeat("ab", 0), "")
+    return ok
+}
+
+@[test]
+pub fn repeat_anomaly_negative: () :bool {
+    set ok = true :bool mut
+    set got = strings::repeat("ab", -1)
+    if !use! harness::check_str("repeat/negative", got, "") { set ok = false }
+    use! harness::anomaly("strings/repeat", "negative_count", "ab|-1", "", got, got == "")
+    return ok
+}
+
+@[test]
+pub fn repeat_limit_empty_source: () :bool {
+    set ok = use! harness::check_str("repeat/empty-source", strings::repeat("", 5), "")
+    return ok
+}

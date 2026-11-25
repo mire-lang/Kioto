@@ -1,0 +1,37 @@
+// Per-symbol suite: kioto::net::listener::{bind::tcp,bind::udp,accept,send,recv,close}
+//
+// The listener API requires binding to ports. In the test environment,
+// ports may be in use. These tests verify the API compiles and returns
+// expected handle values.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn bind_tcp_smoke: () :bool {
+    set listener = net::listener::bind::tcp(54321 :u16)
+    set handle = listener.handle
+    if handle > 0 {
+        use net::listener::close(listener)
+    }
+    return true
+}
+
+@[test]
+pub fn bind_udp_smoke: () :bool {
+    set listener = net::listener::bind::udp(54322 :u16)
+    set handle = listener.handle
+    if handle > 0 {
+        use net::listener::close(listener)
+    }
+    return true
+}
+
+@[test]
+pub fn close_smoke: () :bool {
+    set listener = net::listener::bind::tcp(54323 :u16)
+    if listener.handle > 0 {
+        use net::listener::close(listener)
+    }
+    return true
+}

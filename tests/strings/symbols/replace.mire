@@ -1,0 +1,79 @@
+// Per-symbol suite: kioto::strings::{replace::all,replace::first}
+//
+// The documented contract: all replaces every occurrence, first replaces only
+// the first. Neither rescans the replacement, and an absent or empty needle
+// leaves the string alone.
+//
+// The current runtime routes both names to a first-only implementation, so the
+// all-occurrences cases below fail until that is fixed.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn replace_all_success_every_occurrence: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_all/repeat-char", strings::replace::all("aaa", "a", "b"), "bbb") { set ok = false }
+    if !use! harness::check_str("replace_all/repeat-word", strings::replace::all("abab", "ab", "ba"), "baba") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn replace_all_limit_no_match: () :bool {
+    set ok = use! harness::check_str("replace_all/absent", strings::replace::all("abc", "z", "y"), "abc")
+    return ok
+}
+
+@[test]
+pub fn replace_all_anomaly_empty_needle: () :bool {
+    set got = strings::replace::all("ab", "", "-")
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_all/empty-needle", got, "ab") { set ok = false }
+    use! harness::anomaly("strings/replace", "all_empty_needle", "ab||-", "ab", got, got == "ab")
+    return ok
+}
+
+@[test]
+pub fn replace_all_anomaly_no_rescan: () :bool {
+    // Replacing "a" with "aa" must not see the inserted "a" again, or this
+    // never terminates.
+    set got = strings::replace::all("a", "a", "aa")
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_all/no-rescan", got, "aa") { set ok = false }
+    use! harness::anomaly("strings/replace", "all_no_rescan", "a|a|aa", "aa", got, got == "aa")
+    return ok
+}
+
+@[test]
+pub fn replace_first_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_first/char", strings::replace::first("aaa", "a", "b"), "baa") { set ok = false }
+    if !use! harness::check_str("replace_first/word", strings::replace::first("abcabc", "ab", "X"), "Xcabc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn replace_first_limit_no_match: () :bool {
+    set ok = use! harness::check_str("replace_first/absent", strings::replace::first("abc", "z", "y"), "abc")
+    return ok
+}
+
+@[test]
+pub fn replace_first_anomaly_empty_needle: () :bool {
+    set got = strings::replace::first("ab", "", "-")
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_first/empty-needle", got, "ab") { set ok = false }
+    use! harness::anomaly("strings/replace", "first_empty_needle", "ab||-", "ab", got, got == "ab")
+    return ok
+}
+
+@[test]
+pub fn replace_first_anomaly_longer_replacement: () :bool {
+    // The replacement is inserted once, not rescanned: "a" -> "aa" on a
+    // one-character string gives two characters, not a loop.
+    set got = strings::replace::first("aaa", "a", "aa")
+    set ok = true :bool mut
+    if !use! harness::check_str("replace_first/longer", got, "aaaa") { set ok = false }
+    use! harness::anomaly("strings/replace", "first_longer_replacement", "aaa|a|aa", "aaaa", got, got == "aaaa")
+    return ok
+}

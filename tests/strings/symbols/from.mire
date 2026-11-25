@@ -1,0 +1,61 @@
+// Per-symbol suite: kioto::strings::from::{i64,bool,f64}
+//
+// i64 is exact. bool is the literal "true"/"false". f64 is %g with six
+// significant digits: good enough to show a value, explicitly not a
+// round-trip format, which is the anomaly case.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn from_i64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("from_i64/zero", strings::from::i64(0), "0") { set ok = false }
+    if !use! harness::check_str("from_i64/negative", strings::from::i64(-42), "-42") { set ok = false }
+    if !use! harness::check_str("from_i64/positive", strings::from::i64(1234), "1234") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_i64_limit_extremes: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("from_i64/max", strings::from::i64(9223372036854775807), "9223372036854775807") { set ok = false }
+    if !use! harness::check_str("from_i64/min", strings::from::i64(-9223372036854775808), "-9223372036854775808") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_bool_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("from_bool/true", strings::from::bool(true), "true") { set ok = false }
+    if !use! harness::check_str("from_bool/false", strings::from::bool(false), "false") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_f64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("from_f64/pi", strings::from::f64(3.14159265), "3.14159") { set ok = false }
+    if !use! harness::check_str("from_f64/half", strings::from::f64(2.5), "2.5") { set ok = false }
+    if !use! harness::check_str("from_f64/negative", strings::from::f64(-1.5), "-1.5") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_f64_limit_zero: () :bool {
+    set ok = use! harness::check_str("from_f64/zero", strings::from::f64(0.0), "0")
+    return ok
+}
+
+@[test]
+pub fn from_f64_anomaly_six_significant_digits: () :bool {
+    // %g with six significant digits. Logged because a caller must not use
+    // this to serialise a value it intends to read back exactly.
+    set big = strings::from::f64(1234567.0)
+    set small = strings::from::f64(0.000001234)
+    set ok = true :bool mut
+    if !use! harness::check_str("from_f64/big", big, "1.23457e+06") { set ok = false }
+    if !use! harness::check_str("from_f64/small", small, "1.234e-06") { set ok = false }
+    use! harness::anomaly("strings/from", "f64_lossy", "1234567.0", "1.23457e+06", big, big == "1.23457e+06")
+    return ok
+}

@@ -64,15 +64,15 @@ pub fn copysign_takes_magnitude_from_a_and_sign_from_b: () :bool {
 
 @[test]
 pub fn trunc_toward_zero: () :bool {
-    if math::float::trunc(3.75) != 3.0 { return false }
-    if math::float::trunc(0.0 - 3.75) != 0.0 - 3.0 { return false }
-    if math::float::trunc(4.0) != 4.0 { return false }
-    if math::float::trunc(0.75) != 0.0 { return false }
-    if math::float::trunc(0.0 - 0.75) != 0.0 { return false }
+    if math::float::trunc::f64(3.75) != 3.0 { return false }
+    if math::float::trunc::f64(0.0 - 3.75) != 0.0 - 3.0 { return false }
+    if math::float::trunc::f64(4.0) != 4.0 { return false }
+    if math::float::trunc::f64(0.75) != 0.0 { return false }
+    if math::float::trunc::f64(0.0 - 0.75) != 0.0 { return false }
     // Everything in (-1, 1) truncates to zero, and a sign-blind fast path
     // would hand the negative fraction back unchanged.
-    if math::float::trunc(0.0 - 0.5) != 0.0 { return false }
-    if math::float::trunc(0.0 - 1.5) != 0.0 - 1.0 { return false }
+    if math::float::trunc::f64(0.0 - 0.5) != 0.0 { return false }
+    if math::float::trunc::f64(0.0 - 1.5) != 0.0 - 1.0 { return false }
     return true
 }
 
@@ -90,53 +90,53 @@ pub fn fract_keeps_the_sign_of_the_input: () :bool {
 
 @[test]
 pub fn floor_and_ceil_directions: () :bool {
-    if math::float::floor(3.75) != 3.0 { return false }
-    if math::float::floor(0.0 - 3.75) != 0.0 - 4.0 { return false }
-    if math::float::floor(4.0) != 4.0 { return false }
-    if math::float::ceil(3.25) != 4.0 { return false }
-    if math::float::ceil(0.0 - 3.75) != 0.0 - 3.0 { return false }
-    if math::float::ceil(4.0) != 4.0 { return false }
+    if math::float::floor::f64(3.75) != 3.0 { return false }
+    if math::float::floor::f64(0.0 - 3.75) != 0.0 - 4.0 { return false }
+    if math::float::floor::f64(4.0) != 4.0 { return false }
+    if math::float::ceil::f64(3.25) != 4.0 { return false }
+    if math::float::ceil::f64(0.0 - 3.75) != 0.0 - 3.0 { return false }
+    if math::float::ceil::f64(4.0) != 4.0 { return false }
     // At the unit boundary floor rounds away from zero and ceil rounds toward.
-    if math::float::floor(0.0 - 0.5) != 0.0 - 1.0 { return false }
-    if math::float::ceil(0.0 - 0.5) != 0.0 { return false }
-    if math::float::floor(0.0 - 0.75) != 0.0 - 1.0 { return false }
-    if math::float::ceil(0.0 - 0.75) != 0.0 { return false }
+    if math::float::floor::f64(0.0 - 0.5) != 0.0 - 1.0 { return false }
+    if math::float::ceil::f64(0.0 - 0.5) != 0.0 { return false }
+    if math::float::floor::f64(0.0 - 0.75) != 0.0 - 1.0 { return false }
+    if math::float::ceil::f64(0.0 - 0.75) != 0.0 { return false }
     return true
 }
 
 @[test]
 pub fn round_breaks_ties_away_from_zero: () :bool {
-    if math::float::round(2.5) != 3.0 { return false }
-    if math::float::round(0.0 - 2.5) != 0.0 - 3.0 { return false }
-    if math::float::round(3.4) != 3.0 { return false }
-    if math::float::round(3.75) != 4.0 { return false }
-    if math::float::round(0.0 - 3.75) != 0.0 - 4.0 { return false }
-    if math::float::round(4.0) != 4.0 { return false }
-    if math::float::round(0.0 - 0.5) != 0.0 - 1.0 { return false }
-    if math::float::round(0.0 - 0.75) != 0.0 - 1.0 { return false }
-    if math::float::round(0.0 - 1.5) != 0.0 - 2.0 { return false }
+    if math::float::round::f64(2.5) != 3.0 { return false }
+    if math::float::round::f64(0.0 - 2.5) != 0.0 - 3.0 { return false }
+    if math::float::round::f64(3.4) != 3.0 { return false }
+    if math::float::round::f64(3.75) != 4.0 { return false }
+    if math::float::round::f64(0.0 - 3.75) != 0.0 - 4.0 { return false }
+    if math::float::round::f64(4.0) != 4.0 { return false }
+    if math::float::round::f64(0.0 - 0.5) != 0.0 - 1.0 { return false }
+    if math::float::round::f64(0.0 - 0.75) != 0.0 - 1.0 { return false }
+    if math::float::round::f64(0.0 - 1.5) != 0.0 - 2.0 { return false }
     // This is explicitly not banker's rounding: round(0.5) is 1, not 0.
-    if math::float::round(0.5) != 1.0 { return false }
-    if math::float::round(1.5) != 2.0 { return false }
+    if math::float::round::f64(0.5) != 1.0 { return false }
+    if math::float::round::f64(1.5) != 2.0 { return false }
     return true
 }
 
 @[test]
 pub fn rounding_leaves_nan_and_infinity_alone: () :bool {
     set inf = 1.0 / 0.0
-    if math::float::trunc(inf) != inf { return false }
-    if math::float::floor(inf) != inf { return false }
-    if math::float::ceil(inf) != inf { return false }
-    if math::float::round(inf) != inf { return false }
-    if math::float::trunc(0.0 - inf) != 0.0 - inf { return false }
+    if math::float::trunc::f64(inf) != inf { return false }
+    if math::float::floor::f64(inf) != inf { return false }
+    if math::float::ceil::f64(inf) != inf { return false }
+    if math::float::round::f64(inf) != inf { return false }
+    if math::float::trunc::f64(0.0 - inf) != 0.0 - inf { return false }
     if math::float::fract(inf) != inf { return false }
     // NaN never compares equal to itself, so a result that still reports itself
     // as NaN proves the value was handed back rather than folded into a number.
     set nan = inf - inf
-    if math::float::trunc(nan) == nan { return false }
-    if math::float::floor(nan) == nan { return false }
-    if math::float::ceil(nan) == nan { return false }
-    if math::float::round(nan) == nan { return false }
+    if math::float::trunc::f64(nan) == nan { return false }
+    if math::float::floor::f64(nan) == nan { return false }
+    if math::float::ceil::f64(nan) == nan { return false }
+    if math::float::round::f64(nan) == nan { return false }
     if math::float::fract(nan) == nan { return false }
     return true
 }
@@ -150,21 +150,21 @@ fn large_finite: () :f64 { return 8.98846567431158e307 }
 pub fn rounding_passes_through_magnitudes_at_or_above_2_52: () :bool {
     // Every f64 at or past 2^52 is already an integer, so the decomposition
     // must hand it back rather than grinding through 52 iterations.
-    if math::float::trunc(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::float::floor(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::float::ceil(4503599627370496.0) != 4503599627370496.0 { return false }
-    if math::float::round(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::float::trunc::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::float::floor::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::float::ceil::f64(4503599627370496.0) != 4503599627370496.0 { return false }
+    if math::float::round::f64(4503599627370496.0) != 4503599627370496.0 { return false }
     if math::float::fract(4503599627370496.0) != 0.0 { return false }
     // The same holds for anything too large to decompose at all.
     set huge = large_finite()
     if !math::float::isFinite(huge) { return false }
-    if math::float::trunc(huge) != huge { return false }
-    if math::float::floor(huge) != huge { return false }
-    if math::float::ceil(huge) != huge { return false }
-    if math::float::round(huge) != huge { return false }
+    if math::float::trunc::f64(huge) != huge { return false }
+    if math::float::floor::f64(huge) != huge { return false }
+    if math::float::ceil::f64(huge) != huge { return false }
+    if math::float::round::f64(huge) != huge { return false }
     // Past 2^52 every f64 is an integer, so its fractional part is zero.
     if math::float::fract(huge) != 0.0 { return false }
-    if math::float::trunc(0.0 - huge) != 0.0 - huge { return false }
+    if math::float::trunc::f64(0.0 - huge) != 0.0 - huge { return false }
     return true
 }
 

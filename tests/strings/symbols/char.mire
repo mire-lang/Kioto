@@ -1,0 +1,77 @@
+// Per-symbol suite: kioto::strings::{char_at,from_byte}
+//
+// char_at is byte-oriented and returns 0 outside the string. from_byte masks
+// its argument to the low byte, so out-of-range input produces exactly one
+// byte instead of failing; that truncation is what the anomaly case records.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn char_at_success_ascii: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("char_at/a", strings::char_at("abc", 0), 97) { set ok = false }
+    if !use! harness::check_i64("char_at/c", strings::char_at("abc", 2), 99) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn char_at_limit_last_byte: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("char_at/last", strings::char_at("abc", 2), 99) { set ok = false }
+    if !use! harness::check_i64("char_at/one-past", strings::char_at("abc", 3), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn char_at_anomaly_out_of_range: () :bool {
+    set ok = true :bool mut
+    set neg = strings::char_at("abc", -1)
+    set far = strings::char_at("abc", 9)
+    if !use! harness::check_i64("char_at/negative", neg, 0) { set ok = false }
+    if !use! harness::check_i64("char_at/far", far, 0) { set ok = false }
+    use! harness::anomaly("strings/char_at", "negative_index", "abc|-1", "0", strings::from::i64(neg), neg == 0)
+    use! harness::anomaly("strings/char_at", "far_index", "abc|9", "0", strings::from::i64(far), far == 0)
+    return ok
+}
+
+@[test]
+pub fn char_at_anomaly_multibyte_is_leading_byte: () :bool {
+    set got = strings::char_at("ñ", 0)
+    set ok = true :bool mut
+    if !use! harness::check_i64("char_at/utf8-leading", got, 195) { set ok = false }
+    use! harness::anomaly("strings/char_at", "utf8_leading_byte", "ñ|0", "195", strings::from::i64(got), got == 195)
+    return ok
+}
+
+@[test]
+pub fn from_byte_success_ascii: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("from_byte/A", strings::from_byte(65), "A") { set ok = false }
+    if !use! harness::check_i64("from_byte/A-roundtrip", strings::char_at(strings::from_byte(65), 0), 65) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_byte_limit_zero: () :bool {
+    set s = strings::from_byte(0)
+    set ok = true :bool mut
+    if !use! harness::check_i64("from_byte/zero-len", strings::len(s), 1) { set ok = false }
+    if !use! harness::check_i64("from_byte/zero-value", strings::char_at(s, 0), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn from_byte_anomaly_out_of_range_truncates: () :bool {
+    set over = strings::from_byte(999)
+    set neg = strings::from_byte(-1)
+    set wrap = strings::from_byte(256)
+    set ok = true :bool mut
+    if !use! harness::check_i64("from_byte/over-len", strings::len(over), 1) { set ok = false }
+    if !use! harness::check_i64("from_byte/over-value", strings::char_at(over, 0), 231) { set ok = false }
+    if !use! harness::check_i64("from_byte/negative-value", strings::char_at(neg, 0), 255) { set ok = false }
+    if !use! harness::check_i64("from_byte/wrap-value", strings::char_at(wrap, 0), 0) { set ok = false }
+    use! harness::anomaly("strings/from_byte", "over_range", "999", "231 (truncated)", strings::from::i64(strings::char_at(over, 0)), strings::char_at(over, 0) == 231)
+    use! harness::anomaly("strings/from_byte", "negative", "-1", "255 (truncated)", strings::from::i64(strings::char_at(neg, 0)), strings::char_at(neg, 0) == 255)
+    return ok
+}

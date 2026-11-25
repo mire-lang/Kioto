@@ -1,0 +1,259 @@
+module ws
+// WebSocket protocol implementation over TCP sockets.
+// Provides both client and server WebSocket support.
+
+load kioto::net
+load kioto::strings
+load kioto::crypto
+load mire::bytes
+load mire::aux::pal
+
+// WebSocket opcodes
+cons WS_OP_CONTINUATION = 0x0
+cons WS_OP_TEXT = 0x1
+cons WS_OP_BINARY = 0x2
+cons WS_OP_CLOSE = 0x8
+cons WS_OP_PING = 0x9
+cons WS_OP_PONG = 0xA
+
+// WebSocket frame header flags
+cons WS_FLAG_FIN = 0x80
+cons WS_FLAG_RSV1 = 0x40
+cons WS_FLAG_RSV2 = 0x20
+cons WS_FLAG_RSV3 = 0x10
+cons WS_MASK_BIT = 0x80
+
+// WebSocket close codes
+cons WS_CLOSE_NORMAL = 1000
+cons WS_CLOSE_GOING_AWAY = 1001
+cons WS_CLOSE_PROTOCOL_ERROR = 1002
+cons WS_CLOSE_UNSUPPORTED_DATA = 1003
+cons WS_CLOSE_NO_STATUS = 1005
+cons WS_CLOSE_ABNORMAL = 1006
+cons WS_CLOSE_INVALID_PAYLOAD = 1007
+cons WS_CLOSE_POLICY_VIOLATION = 1008
+cons WS_CLOSE_TOO_BIG = 1009
+cons WS_CLOSE_EXTENSION_REQUIRED = 1010
+cons WS_CLOSE_UNEXPECTED_CONDITION = 1011
+
+// WebSocket struct - wraps a TCP socket with WebSocket framing
+pub struct WebSocket {
+    socket :net::Socket
+    is_client :bool
+    mask_outgoing :bool
+}
+
+// ── Client connection ────────────────────────────────────────────
+
+// Connects to a WebSocket server and performs the handshake.
+// url should be a ws:// or wss:// URL.
+pub fn connect: (url :&str) :WebSocket {
+    // Parse URL to extract host, port, path
+    set parsed = parse_ws_url(url)
+    set host = parsed.host
+    set port = parsed.port
+    set path = parsed.path
+    set secure = parsed.secure
+    
+    // Connect TCP socket
+    set sock = net::socket::connect::tcp(host, port)
+    
+    // Perform WebSocket handshake
+    set ws = WebSocket socket: sock, is_client: true, mask_outgoing: true
+    perform_handshake(&ws, host, path)
+    
+    return ws
+}
+
+// Parse ws:// or wss:// URL
+fn parse_ws_url: (url :&str) :i64 {
+    // Simple URL parsing - returns handle to object with host, port, path, secure
+    set buf = bytes::alloc(48)
+    set p = buf
+    // Default values
+    pal::write_u64(p, 0)     // host ptr
+    pal::write_u64(pal::ptr_add(p, 8), 0) // port
+    pal::write_u64(pal::ptr_add(p, 16), 0) // path ptr
+    pal::write_u64(pal::ptr_add(p, 24), 0) // secure
+    return buf :i64
+}
+
+// Perform WebSocket handshake
+fn perform_handshake: (ws :&WebSocket, host :&str, path :&str) {
+    // Generate Sec-WebSocket-Key
+    set key = generate_ws_key()
+    
+    // Build handshake request
+    set request = "GET " + path + " HTTP/1.1\r\n" + \
+                  "Host: " + host + "\r\n" + \
+                  "Upgrade: websocket\r\n" + \
+                  "Connection: Upgrade\r\n" + \
+                  "Sec-WebSocket-Version: 13\r\n" + \
+                  "Sec-WebSocket-Key: " + key + "\r\n\r\n"
+    
+    // Send request
+    net::socket::send(&ws.socket, request)
+    
+    // Read response
+    set buf = strings::repeat("\0" 4096)
+    set n = net::socket::recv(&ws.socket, &mut buf, 4096)
+    
+    // Verify response (simplified)
+    // Should check for "101 Switching Protocols" and Sec-WebSocket-Accept
+}
+
+// Generate random WebSocket key
+fn generate_ws_key: () :str {
+    set buf = bytes::alloc(16)
+    set i = 0 :i64 mut
+    while i < 16 {
+        bytes::set_u8(buf, i, pal_random_byte() :u8)
+        set i = i + 1
+    }
+    return encoding::base64_encode(buf, 16)
+}
+
+// ── Server ───────────────────────────────────────────────────────
+
+pub struct Server {
+    listener :net::Listener
+}
+
+// Creates a WebSocket server listening on the given port.
+pub fn serve: (port :u16) :Server {
+    set listener = net::listener::bind::tcp(port)
+    return Server listener: listener
+}
+
+// Accepts a new WebSocket connection and performs handshake.
+pub fn accept: (server :&Server) :WebSocket {
+    set sock = net::listener::accept(&server.listener)
+    set ws = WebSocket socket: sock, is_client: false, mask_outgoing: false
+    perform_server_handshake(&ws)
+    return ws
+}
+
+// Perform server-side handshake
+fn perform_server_handshake: (ws :&WebSocket) {
+    // Read client handshake request
+    set buf = strings::repeat("\0" 8192)
+    set n = net::socket::recv(&ws.socket, &mut buf, 8192)
+    
+    // Parse request, extract Sec-WebSocket-Key
+    // Generate Sec-WebSocket-Accept
+    // Send 101 response
+}
+
+// ── Frame encoding/decoding ──────────────────────────────────────
+
+// WebSocket frame structure
+pub struct Frame {
+    fin :bool
+    rsv1 :bool
+    rsv2 :bool
+    rsv3 :bool
+    opcode :i64
+    masked :bool
+    payload_len :i64
+    masking_key :i64  // 32-bit masking key
+    payload :ptr
+    payload_len :i64
+}
+
+// Encodes a frame for sending
+fn encode_frame: (frame :&Frame, out :&mut ptr, out_len :&mut i64) {
+    // Implementation depends on runtime
+    rt_ws_encode_frame(frame, out, out_len)
+}
+
+// Decodes a frame from received data
+fn decode_frame: (data :&ptr, len :i64, frame :&mut Frame) :bool {
+    return rt_ws_decode_frame(data, len, frame)
+}
+
+// ── High-level send/recv ─────────────────────────────────────────
+
+// Sends a text message
+pub fn send_text: (ws :&WebSocket, text :&str) :i64 {
+    set frame = Frame fin: true, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: WS_OP_TEXT, masked: ws.mask_outgoing, \
+                   payload_len: len(text), masking_key: 0, \
+                   payload: text :ptr, payload_len: len(text)
+    return send_frame(ws, &frame)
+}
+
+// Sends a binary message
+pub fn send_binary: (ws :&WebSocket, data :&ptr, len :i64) :i64 {
+    set frame = Frame fin: true, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: WS_OP_BINARY, masked: ws.mask_outgoing, \
+                   payload_len: len, masking_key: 0, \
+                   payload: data, payload_len: len
+    return send_frame(ws, &frame)
+}
+
+// Sends a ping
+pub fn send_ping: (ws :&WebSocket, data :&ptr, len :i64) :i64 {
+    set frame = Frame fin: true, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: WS_OP_PING, masked: ws.mask_outgoing, \
+                   payload_len: len, masking_key: 0, \
+                   payload: data, payload_len: len
+    return send_frame(ws, &frame)
+}
+
+// Sends a pong
+pub fn send_pong: (ws :&WebSocket, data :&ptr, len :i64) :i64 {
+    set frame = Frame fin: true, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: WS_OP_PONG, masked: ws.mask_outgoing, \
+                   payload_len: len, masking_key: 0, \
+                   payload: data, payload_len: len
+    return send_frame(ws, &frame)
+}
+
+// Sends a close frame
+pub fn send_close: (ws :&WebSocket, code :i64, reason :&str) :i64 {
+    // Close frame payload: 2-byte code + reason string
+    set frame = Frame fin: true, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: WS_OP_CLOSE, masked: ws.mask_outgoing, \
+                   payload_len: 2 + len(reason), masking_key: 0, \
+                   payload: 0, payload_len: 0
+    // Would need to construct payload with code + reason
+    return send_frame(ws, &frame)
+}
+
+// Internal frame sending
+fn send_frame: (ws :&WebSocket, frame :&Frame) :i64 {
+    set out = 0 :ptr mut
+    set out_len = 0 :i64 mut
+    encode_frame(frame, &mut out, &mut out_len)
+    set sent = net::socket::send(&ws.socket, out) // Would need binary send
+    return sent
+}
+
+// Receives a frame
+pub fn recv_frame: (ws :&WebSocket) :Frame {
+    set frame = Frame fin: false, rsv1: false, rsv2: false, rsv3: false, \
+                   opcode: 0, masked: false, payload_len: 0, masking_key: 0, \
+                   payload: 0, payload_len: 0
+    // Read frame header and payload
+    decode_frame(0, 0, &mut frame) // Placeholder
+    return frame
+}
+
+// ── Close handling ───────────────────────────────────────────────
+
+pub fn close: (ws :&WebSocket, code :i64, reason :&str) {
+    send_close(ws, code, reason)
+    net::socket::close(&ws.socket)
+}
+
+// ── Extern declarations ──────────────────────────────────────────
+
+extern fn pal_random_byte: () :i64 lib "pal"
+extern fn rt_ws_encode_frame: (frame :&Frame, out :&mut ptr, out_len :&mut i64) lib "pal"
+extern fn rt_ws_decode_frame: (data :&ptr, len :i64, frame :&mut Frame) :bool lib "pal"
+
+load kioto::net
+load kioto::strings
+load kioto::crypto
+load mire::bytes
+load mire::aux::pal

@@ -1,0 +1,132 @@
+// Per-symbol suite: kioto::proc::run::{create,spawn,output,output_cwd,last_exit,read_line}
+//
+// proc::run::create is the low-level form with explicit channel handles.
+// proc::run::spawn runs to completion and returns the exit code.
+// proc::run::output captures stdout and returns it as a string.
+// proc::run::output_cwd does the same from a specific directory.
+// proc::run::last_exit is the thread-local exit code for the last captured run.
+// proc::run::read_line reads from /dev/tty (falls back to "y" without a tty).
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn spawn_success: () :bool {
+    // A command that exists and exits 0. echo is a shell builtin, but the
+    // proc API passes argv directly to execvp, so we use a real binary.
+    set exit = proc::run::spawn("true", [] :vec[str])
+    set ok = use! harness::check_i64("proc/spawn/true", exit, 0)
+    return ok
+}
+
+@[test]
+pub fn spawn_limit_command_not_found: () :bool {
+    // A command that does not exist gives 127 (exec failure), not -1 (fork
+    // failure). The distinction is what lets a caller tell "program missing"
+    // from "system out of resources".
+    set exit = proc::run::spawn("/does/not/exist-9f3a", [] :vec[str])
+    set ok = use! harness::check_i64("proc/spawn/missing", exit, 127)
+    return ok
+}
+
+@[test]
+pub fn output_success: () :bool {
+    // echo -n prints without a trailing newline, so the captured string is
+    // exactly what we asked for.
+    set out = proc::run::output("echo", ["-n", "hello"])
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/output/echo", out, "hello") { set ok = false }
+    if !use! harness::check_i64("proc/output/exit", exit, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn output_limit_empty: () :bool {
+    // A command that prints nothing still exits 0, and the captured string is
+    // empty. This is indistinguishable from a command that failed to run at
+    // all, which is why last_exit() is the authoritative signal.
+    set out = proc::run::output("true", [] :vec[str])
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/output/true", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/output/true-exit", exit, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn output_anomaly_failure: () :bool {
+    // false exits 1 and prints nothing. The captured string is empty, same as
+    // true, but last_exit() is 1.
+    set out = proc::run::output("false", [] :vec[str])
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/output/false", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/output/false-exit", exit, 1) { set ok = false }
+    use! harness::anomaly("proc/run", "output_failure", "false", "empty + exit=1", strings::from::i64(exit), exit == 1)
+    return ok
+}
+
+@[test]
+pub fn output_cwd_success: () :bool {
+    // The child runs in the given directory. true exits 0 and prints nothing.
+    // Use the current working directory which we know is accessible.
+    set out = proc::run::output_cwd("true", [] :vec[str], ".", false)
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/output_cwd/empty", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/output_cwd/exit", exit, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn output_cwd_anomaly_bad_cwd: () :bool {
+    // A non-existent or inaccessible cwd makes the child exit 126 before exec.
+    set out = proc::run::output_cwd("true", [] :vec[str], "/definitely/not/a/real/path-9f3a", false)
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_str("proc/output_cwd/bad", out, "") { set ok = false }
+    if !use! harness::check_i64("proc/output_cwd/bad-exit", exit, 126) { set ok = false }
+    use! harness::anomaly("proc/run", "output_cwd_bad", "/bad/path", "empty + exit=126", strings::from::i64(exit), exit == 126)
+    return ok
+}
+
+@[test]
+pub fn output_cwd_anomaly_merge_err: () :bool {
+    // merge_err=true folds stderr into the same capture. A command that prints
+    // only to stderr will have its stderr appear in the returned string.
+    // Use a command that writes to stderr but succeeds.
+    set out = proc::run::output_cwd("sh", ["-c", "echo stderr >&2"], "/tmp", true)
+    set exit = proc::run::last_exit()
+    set ok = true :bool mut
+    // This may fail if sh is not available, which is OK for this test environment.
+    if exit == 0 {
+        if !use! harness::check("proc/output_cwd/merge_err", strings::len(out) > 0) { set ok = false }
+        if !use! harness::check_i64("proc/output_cwd/merge_exit", exit, 0) { set ok = false }
+    }
+    use! harness::anomaly("proc/run", "output_cwd_merge_err", "stderr", "stderr in output", out, strings::len(out) > 0 || exit != 0)
+    return ok
+}
+
+@[test]
+pub fn last_exit_success_is_thread_local: () :bool {
+    // The exit code is thread-local. A call in this thread does not affect
+    // another thread's last_exit, but we can't test threads here. We verify
+    // that two sequential calls in the same thread update correctly.
+    set out1 = proc::run::output("true", [] :vec[str])
+    set e1 = proc::run::last_exit()
+    set out2 = proc::run::output("false", [] :vec[str])
+    set e2 = proc::run::last_exit()
+    set ok = true :bool mut
+    if !use! harness::check_i64("proc/last_exit/first", e1, 0) { set ok = false }
+    if !use! harness::check_i64("proc/last_exit/second", e2, 1) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn read_line_smoke: () :bool {
+    // In a test runner there is no /dev/tty, so read_line returns "y".
+    set line = proc::run::read_line()
+    set ok = use! harness::check_str("proc/read_line", line, "y")
+    return ok
+}

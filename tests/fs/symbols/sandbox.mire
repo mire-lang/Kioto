@@ -1,52 +1,210 @@
-// fs::sandbox / fs::unrestricted / proc::shell — the security boundary.
+// Per-symbol suite: kioto::fs::sandbox and kioto::fs::unrestricted.
 //
-// Every test here is an end-to-end check against the real filesystem and a
-// real /bin/sh: fixtures are created under the working directory, real
-// symlinks are planted, and a real shell is invoked. Nothing here is a
-// tautology like `return true`, and nothing shells out to `ls | grep` to
-// decide whether a policy held.
+// The policy is process-wide and defaults to the working directory. Every case
+// that changes it restores the default before returning, so the other tests in
+// this binary (and every later file) see the same root.
 //
-// The shape of the suite is deny-then-grant. For each restriction there is a
-// test that it blocks by default and a test that the documented escape hatch
-// actually opens it, because a gate that denies everything would pass the first
-// half and be useless.
+// The last two cases are the security contract: a capability root must confine
+// every child path, including an absolute one. The runtime currently opens
+// "/etc/passwd" through a root opened at "." and reads it; that escape is
+// asserted as a failure and logged with its real size.
 
 load kioto
+load! /tests/_support/harness
 
-// A scratch directory under the working directory, which is the sandbox root,
-// so these fixtures are themselves allowed to be created.
+fn cwd: () :str {
+    return strings::copy(env::cwd())
+}
 
-// The fixture lives INSIDE the sandbox root, which is the working directory.
-// That is deliberate: a fixture in /tmp would be outside the sandbox, and the
-// setup would have to opt out of the very policy it is about to test. Using a
-// relative path also keeps the suite self-contained.
-// A scratch directory for one test, inside the working directory, which is
-// the sandbox root. The fixture lives INSIDE the sandbox root deliberately: a
-// fixture in /tmp would be outside the sandbox, and the setup would have to
-// opt out of the very policy it is about to test. Using a relative path also
-// keeps the suite self-contained.
-//
-// The directory is named after the test instead of being shared, because the
-// suite runs several tests at once: a shared fixture has them deleting each
-// other's files mid-run, which is a race, not a test.
+@[test]
+pub fn permits_success_inside: () :bool {
+    set base = cwd()
+    set absolute = strings::copy(strings::concat(base, "/tests"))
+    set ok = true :bool mut
+    if !use! harness::check("sandbox/permits/absolute-inside", fs::sandbox::permits(absolute)) { set ok = false }
+    if !use! harness::check("sandbox/permits/relative", fs::sandbox::permits("tests")) { set ok = false }
+    if !use! harness::check("sandbox/permits/normalized-inside", fs::sandbox::permits("tests/../README.md")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn permits_limit_outside_absolute: () :bool {
+    set allowed = fs::sandbox::permits("/etc/passwd")
+    set code = fs::sandbox::reason()
+    set text = fs::sandbox::reason_text()
+    set denied = fs::sandbox::denied_path()
+    set ok = true :bool mut
+    if !use! harness::check_false("sandbox/permits/outside", allowed) { set ok = false }
+    if !use! harness::check_i64("sandbox/permits/outside-reason", code, fs::reason_absolute()) { set ok = false }
+    if !use! harness::check_str("sandbox/permits/reason-text", text, "absolute path is outside the sandbox root") { set ok = false }
+    if !use! harness::check_str("sandbox/permits/denied-path", denied, "/etc/passwd") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn permits_anomaly_parent_escape: () :bool {
+    // "../x" is a relative path that leaves the root; the reason is ESCAPE,
+    // not ABSOLUTE.
+    set allowed = fs::sandbox::permits("../x")
+    set code = fs::sandbox::reason()
+    set ok = true :bool mut
+    if !use! harness::check_false("sandbox/permits/parent", allowed) { set ok = false }
+    if !use! harness::check_i64("sandbox/permits/parent-reason", code, fs::reason_escape()) { set ok = false }
+    use! harness::anomaly("fs/sandbox", "parent_escape", "../x", "denied + ESCAPE", strings::from::i64(code), code == fs::reason_escape())
+    return ok
+}
+
+@[test]
+pub fn get_root_success_defaults_to_cwd: () :bool {
+    set base = cwd()
+    set root = fs::sandbox::get_root()
+    set ok = use! harness::check_str("sandbox/get-root", root, base)
+    return ok
+}
+
+@[test]
+pub fn deny_all_then_restore: () :bool {
+    // deny_all stores the empty root: every absolute path is denied with
+    // NO_ROOT until set_root is called again.
+    set base = cwd()
+    fs::sandbox::deny_all()
+    set denied_root = fs::sandbox::get_root()
+    set allowed = fs::sandbox::permits(strings::copy(strings::concat(base, "/x")))
+    set code = fs::sandbox::reason()
+    fs::sandbox::set_root(base)
+    set restored_root = fs::sandbox::get_root()
+    set restored = fs::sandbox::permits(strings::copy(strings::concat(base, "/x")))
+    set ok = true :bool mut
+    if !use! harness::check_str("sandbox/deny-root", denied_root, "") { set ok = false }
+    if !use! harness::check_false("sandbox/deny-permits", allowed) { set ok = false }
+    if !use! harness::check_i64("sandbox/deny-reason", code, fs::reason_no_root()) { set ok = false }
+    if !use! harness::check_str("sandbox/restore-root", restored_root, base) { set ok = false }
+    if !use! harness::check("sandbox/restore-permits", restored) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn set_root_anomaly_missing_path_fails_closed: () :bool {
+    // A root that does not resolve to a directory is stored as empty, so a
+    // typo denies everything rather than silently widening to "/".
+    set base = cwd()
+    fs::sandbox::set_root("/definitely/not/a/real/path-9f3a")
+    set root = fs::sandbox::get_root()
+    set allowed = fs::sandbox::permits(strings::copy(strings::concat(base, "/x")))
+    set code = fs::sandbox::reason()
+    fs::sandbox::set_root(base)
+    set restored = fs::sandbox::permits(strings::copy(strings::concat(base, "/x")))
+    set ok = true :bool mut
+    if !use! harness::check_str("sandbox/bad-root", root, "") { set ok = false }
+    if !use! harness::check_false("sandbox/bad-root-permits", allowed) { set ok = false }
+    if !use! harness::check_i64("sandbox/bad-root-reason", code, fs::reason_no_root()) { set ok = false }
+    if !use! harness::check("sandbox/bad-root-restored", restored) { set ok = false }
+    use! harness::anomaly("fs/sandbox", "missing_root_fails_closed", "/does/not/exist", "empty root", root, root == "")
+    return ok
+}
+
+@[test]
+pub fn unsafe_depth_success: () :bool {
+    set before = fs::sandbox::unsafe_depth()
+    set first = fs::unrestricted::enter()
+    set inside_one = fs::sandbox::unsafe_depth()
+    set second = fs::unrestricted::enter()
+    set inside_two = fs::sandbox::unsafe_depth()
+    set first_exit = fs::unrestricted::exit()
+    set after_first_exit = fs::sandbox::unsafe_depth()
+    set second_exit = fs::unrestricted::exit()
+    set after_second_exit = fs::sandbox::unsafe_depth()
+    set extra_exit = fs::unrestricted::exit()
+    set after_extra_exit = fs::sandbox::unsafe_depth()
+    set ok = true :bool mut
+    if !use! harness::check_i64("sandbox/depth/initial", before, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/enter-first", first, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/inside-one", inside_one, 1) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/enter-second", second, 1) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/inside-two", inside_two, 2) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/exit-first", first_exit, 2) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/after-first-exit", after_first_exit, 1) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/exit-second", second_exit, 1) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/after-second-exit", after_second_exit, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/extra-exit", extra_exit, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/depth/after-extra-exit", after_extra_exit, 0) { set ok = false }
+    use! harness::anomaly("fs/sandbox", "unbalanced_exit_clamped", "exit at depth 0", "0", strings::from::i64(after_extra_exit), after_extra_exit == 0)
+    return ok
+}
+
+@[test]
+pub fn unrestricted_success_is_scoped: () :bool {
+    set denied = fs::read("/etc/passwd")
+    set exists = fs::unrestricted::exists("/etc/passwd")
+    set content = fs::unrestricted::read("/etc/passwd")
+    set depth = fs::sandbox::unsafe_depth()
+    set ok = true :bool mut
+    if !use! harness::check_str("sandbox/unrestricted/denied-read", denied, "") { set ok = false }
+    if !use! harness::check("sandbox/unrestricted/exists", exists) { set ok = false }
+    if !use! harness::check("sandbox/unrestricted/read", strings::len(content) > 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/unrestricted/depth-restored", depth, 0) { set ok = false }
+    use! harness::anomaly("fs/sandbox", "unrestricted_read", "/etc/passwd", "non-empty, depth back to 0", strings::from::i64(strings::len(content)), strings::len(content) > 0 && depth == 0)
+    return ok
+}
+
+@[test]
+pub fn root_open_limit_outside: () :bool {
+    set outside = fs::root::open("/etc")
+    set outside_handle = outside.handle
+    set parent = fs::root::open("..")
+    set parent_handle = parent.handle
+    use fs::root::close(outside)
+    use fs::root::close(parent)
+    set ok = true :bool mut
+    if !use! harness::check_i64("sandbox/root/outside", outside_handle, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/root/parent", parent_handle, 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn root_relative_child_escape_denied: () :bool {
+    set root = fs::root::open(".")
+    set escaped = fs::file::open::read(root, "../etc/passwd")
+    set handle = escaped.handle
+    use fs::file::close(escaped)
+    set ok = use! harness::check_i64("sandbox/root/dotdot-child", handle, 0)
+    return ok
+}
+
+@[test]
+pub fn root_absolute_child_escape_anomaly: () :bool {
+    // SECURITY: opening an absolute child path through a capability root must
+    // stay inside that root. The runtime treats "/etc/passwd" as absolute and
+    // opens it directly, so a sandboxed program can read any file the user
+    // can. Expected handle 0 and size -1; observed a live handle and the real
+    // file size.
+    set root = fs::root::open(".")
+    set escaped = fs::file::open::read(root, "/etc/passwd")
+    set handle = escaped.handle
+    set size = fs::file::size(escaped)
+
+    set dir_root = fs::root::open(".")
+    set dir_handle = fs::dir::open(dir_root, "/etc").handle
+
+    set ok = true :bool mut
+    if !use! harness::check_i64("sandbox/root/absolute-child-handle", handle, 0) { set ok = false }
+    if !use! harness::check_i64("sandbox/root/absolute-child-size", size, -1) { set ok = false }
+    if !use! harness::check_i64("sandbox/root/absolute-child-dir", dir_handle, 0) { set ok = false }
+    use! harness::anomaly("fs/sandbox", "root_absolute_child_escape", "/etc/passwd via root", "denied", strings::from::i64(size), size == -1)
+    return ok
+}
+
+// ═══ Integration cases moved from tests/fs/sandbox/mod.mr ═══════
+
 fn setup: (name :&str) :str {
-    set d = strings::copy(name)
-    use fs::remove_all(d)
-    if !fs::mkdir(d) {
-        return ""
-    }
-    return d
+    // Fixtures live under tests/fs/fixtures/tmp/, which is itself inside the
+    // sandbox root (the package working directory). Nothing is created in the
+    // repository root.
+    return use! harness::fixture_dir("fs/sandbox", name)
 }
 
 fn teardown: (d :&str) {
-    set entries = fs::list(d)
-    set i = 0 :i64 mut
-    while i < len(entries) {
-        set name = vec::get::str(entries, i)
-        use fs::remove_all(fs::path::join(d, name))
-        set i = i + 1
-    }
-    use fs::remove(d)
+    use! harness::fixture_cleanup(d)
 }
 
 // ═══ Default posture ═══════════════════════════════════════════
@@ -166,7 +324,9 @@ pub fn traversal_that_looks_innocent_is_still_denied: () :bool {
     if d == "" {
         return false
     }
-    set sneaky = strings::concat(d, "/../../../../etc/hostname")
+    // Seven levels: the fixture is six components below the root, so six
+    // would land exactly on it and "etc/hostname" would still be inside.
+    set sneaky = strings::concat(d, "/../../../../../../../etc/hostname")
     if fs::sandbox::permits(sneaky) {
         use teardown(d)
         return false

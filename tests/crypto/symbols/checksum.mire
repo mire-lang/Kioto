@@ -1,0 +1,100 @@
+// Per-symbol suite: kioto::crypto::checksum::{text,file,store_get,store_put,verify}
+//
+// text and file hash with SHA-512. The store is a `key = value` line file;
+// put replaces a key in place and preserves unrelated lines.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn text_success_matches_sha512: () :bool {
+    set ok = use! harness::check_str("checksum/text", crypto::checksum::text("abc"), crypto::hash::sha512("abc"))
+    return ok
+}
+
+@[test]
+pub fn file_success_matches_text_bytes: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "file")
+    set path = fs::path::join(dir, "payload.txt")
+    set wrote = fs::write(path, "abc")
+    set file_hash = crypto::checksum::file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("checksum/file/wrote", wrote) { set ok = false }
+    if !use! harness::check_str("checksum/file", file_hash, crypto::checksum::text("abc")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn store_put_then_get_roundtrips: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "store-roundtrip")
+    set store = fs::path::join(dir, "checksums.txt")
+    set put = crypto::checksum::store_put(store, "lib", "deadbeef")
+    set got = crypto::checksum::store_get(store, "lib")
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("checksum/store/put", put) { set ok = false }
+    if !use! harness::check_str("checksum/store/get", got, "deadbeef") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn store_put_replaces_a_key_and_preserves_others: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "store-replace")
+    set store = fs::path::join(dir, "checksums.txt")
+    use crypto::checksum::store_put(store, "lib", "aaa")
+    use crypto::checksum::store_put(store, "other", "ccc")
+    use crypto::checksum::store_put(store, "lib", "bbb")
+    set lib_value = crypto::checksum::store_get(store, "lib")
+    set other_value = crypto::checksum::store_get(store, "other")
+    set content = fs::read(store)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_str("checksum/store/replaced", lib_value, "bbb") { set ok = false }
+    if !use! harness::check_str("checksum/store/preserved", other_value, "ccc") { set ok = false }
+    if !use! harness::check_str("checksum/store/one-line-per-key", content, "lib = bbb\nother = ccc\n") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn store_get_limit_missing_file_and_key: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "store-missing")
+    set store = fs::path::join(dir, "absent.txt")
+    set missing_file = crypto::checksum::store_get(store, "lib")
+    set wrote = fs::write(fs::path::join(dir, "present.txt"), "lib = aaa\n")
+    set present = fs::path::join(dir, "present.txt")
+    set missing_key = crypto::checksum::store_get(present, "nope")
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("checksum/store/present-wrote", wrote) { set ok = false }
+    if !use! harness::check_str("checksum/store/missing-file", missing_file, "") { set ok = false }
+    if !use! harness::check_str("checksum/store/missing-key", missing_key, "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn verify_success_and_failure: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "verify")
+    set store = fs::path::join(dir, "checksums.txt")
+    use crypto::checksum::store_put(store, "lib", "abc123")
+    set hit = crypto::checksum::verify(store, "lib", "abc123")
+    set miss = crypto::checksum::verify(store, "lib", "other")
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("checksum/verify/hit", hit) { set ok = false }
+    if !use! harness::check_false("checksum/verify/miss", miss) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn verify_anomaly_empty_expected_is_false: () :bool {
+    set dir = use! harness::fixture_dir("crypto/checksum", "verify-empty")
+    set store = fs::path::join(dir, "checksums.txt")
+    use crypto::checksum::store_put(store, "lib", "abc123")
+    set got = crypto::checksum::verify(store, "lib", "")
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_false("checksum/verify/empty-expected", got) { set ok = false }
+    use! harness::anomaly("crypto/checksum", "verify_empty_expected", "lib|\"\"", "false", strings::from::bool(got), !got)
+    return ok
+}

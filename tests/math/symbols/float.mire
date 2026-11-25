@@ -1,0 +1,14 @@
+// Per-symbol suite: kioto::math::float
+//
+// The float module functions that take vec[f64] cannot be easily tested
+// because vec[f64] is not constructible in Mire tests (no literal syntax).
+// These tests are placeholders for when the API supports f64 vectors.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn float_smoke: () :bool {
+    // Smoke test: the module loads and functions exist
+    return true
+}

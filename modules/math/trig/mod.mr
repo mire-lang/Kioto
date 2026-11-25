@@ -1,6 +1,6 @@
 module trig
 
-// Kioto 3.0.0 — math::trig
+// Kioto 3.1.0 — math::trig
 //
 // Pure-Mire implementations of the elementary transcendental functions.
 // No rt_math_* extern; everything is built from the quick tier, math::power

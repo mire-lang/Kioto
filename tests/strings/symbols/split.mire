@@ -1,0 +1,75 @@
+// Per-symbol suite: kioto::strings::split
+//
+// Fields are kept, including empty ones. An empty separator does not split.
+// An empty input has no fields at all (the runtime walks the input), which is
+// logged as the anomaly case.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn split_success_three_fields: () :bool {
+    set parts = strings::split("a,b,c", ",")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/len", vec::len(parts), 3) { set ok = false }
+    if !use! harness::check_str("split/first", vec::get::str(parts, 0), "a") { set ok = false }
+    if !use! harness::check_str("split/last", vec::get::str(parts, 2), "c") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn split_keeps_empty_fields: () :bool {
+    set parts = strings::split("a,,b", ",")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/empty-field-len", vec::len(parts), 3) { set ok = false }
+    if !use! harness::check_str("split/empty-field", vec::get::str(parts, 1), "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn split_limit_no_separator: () :bool {
+    set parts = strings::split("abc", ",")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/no-sep-len", vec::len(parts), 1) { set ok = false }
+    if !use! harness::check_str("split/no-sep-value", vec::get::str(parts, 0), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn split_limit_empty_separator: () :bool {
+    // An empty separator does not split at all: the whole string is one part.
+    set parts = strings::split("abc", "")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/empty-sep-len", vec::len(parts), 1) { set ok = false }
+    if !use! harness::check_str("split/empty-sep-value", vec::get::str(parts, 0), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn split_anomaly_empty_input: () :bool {
+    set parts = strings::split("", ",")
+    set got = vec::len(parts)
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/empty-input-len", got, 0) { set ok = false }
+    use! harness::anomaly("strings/split", "empty_input", "", "0", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn split_trailing_separator_yields_empty_field: () :bool {
+    set parts = strings::split("a,", ",")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/trailing-len", vec::len(parts), 2) { set ok = false }
+    if !use! harness::check_str("split/trailing-empty", vec::get::str(parts, 1), "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn split_anomaly_multi_char_separator: () :bool {
+    set parts = strings::split("a::::b", "::")
+    set ok = true :bool mut
+    if !use! harness::check_i64("split/multi-sep-len", vec::len(parts), 3) { set ok = false }
+    if !use! harness::check_str("split/multi-sep-middle", vec::get::str(parts, 1), "") { set ok = false }
+    use! harness::anomaly("strings/split", "multi_char_sep", "a::::b", "3", strings::from::i64(vec::len(parts)), vec::len(parts) == 3)
+    return ok
+}

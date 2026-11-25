@@ -1,0 +1,219 @@
+// Per-symbol suite: kioto::fs::root and kioto::fs::file.
+//
+// Every handle-taking function moves its struct: File and Root are consumed by
+// one call, so a position cannot be set and then read through the same handle.
+// Each assertion therefore opens a fresh root and file. That is a limitation
+// of the current API, recorded in the plan, not of the test.
+//
+// A missing file yields handle 0, size -1, read -1 and write -1. A negative
+// max_len is invalid; a zero max_len currently returns -1 too, which the
+// anomaly case records as a deviation from "reads up to max_len bytes".
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn root_open_success: () :bool {
+    set root = fs::root::open(".")
+    set handle = root.handle
+    use fs::root::close(root)
+    set ok = use! harness::check("file/root/open", handle > 0)
+    return ok
+}
+
+@[test]
+pub fn file_open_read_success: () :bool {
+    set dir = use! harness::fixture_dir("fs/file", "read")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "hello")
+
+    set r1 = fs::root::open(".")
+    set size = fs::file::size(fs::file::open::read(r1, path))
+
+    set r2 = fs::root::open(".")
+    set all = fs::file::read(fs::file::open::read(r2, path), strings::repeat("\0", 5), 5)
+
+    set r3 = fs::root::open(".")
+    set part = fs::file::read(fs::file::open::read(r3, path), strings::repeat("\0", 3), 3)
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/size", size, 5) { set ok = false }
+    if !use! harness::check_i64("file/read-all", all, 5) { set ok = false }
+    if !use! harness::check_i64("file/read-part", part, 3) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_open_limit_missing: () :bool {
+    set dir = use! harness::fixture_dir("fs/file", "missing")
+    set path = strings::copy(fs::path::join(dir, "absent.txt"))
+
+    set r1 = fs::root::open(".")
+    set missing = fs::file::open::read(r1, path)
+    set handle = missing.handle
+    use fs::file::close(missing)
+
+    set r2 = fs::root::open(".")
+    set size = fs::file::size(fs::file::open::read(r2, path))
+
+    set r3 = fs::root::open(".")
+    set read_n = fs::file::read(fs::file::open::read(r3, path), strings::repeat("\0", 4), 4)
+
+    set r4 = fs::root::open(".")
+    set write_n = fs::file::write(fs::file::open::read(r4, path), "x")
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/missing-handle", handle, 0) { set ok = false }
+    if !use! harness::check_i64("file/missing-size", size, -1) { set ok = false }
+    if !use! harness::check_i64("file/missing-read", read_n, -1) { set ok = false }
+    if !use! harness::check_i64("file/missing-write", write_n, -1) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_write_success_without_truncate: () :bool {
+    // open::write is WRITE only: an existing longer file keeps its tail.
+    set dir = use! harness::fixture_dir("fs/file", "write")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "hello")
+
+    set r1 = fs::root::open(".")
+    set written = fs::file::write(fs::file::open::write(r1, path), "XY")
+    set content = fs::read(path)
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/write-count", written, 2) { set ok = false }
+    if !use! harness::check_str("file/write-keeps-tail", content, "XYllo") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_create_success_and_limit_existing: () :bool {
+    // create is READ|WRITE|CREATE: it makes a missing file and leaves an
+    // existing one's bytes alone unless the write reaches them.
+    set dir = use! harness::fixture_dir("fs/file", "create")
+    set fresh = strings::copy(fs::path::join(dir, "fresh.txt"))
+
+    set r1 = fs::root::open(".")
+    set made = fs::file::write(fs::file::open::create(r1, fresh), "abc")
+    set made_content = fs::read(fresh)
+
+    set existing = strings::copy(fs::path::join(dir, "existing.txt"))
+    use fs::write(existing, "hello")
+    set r2 = fs::root::open(".")
+    set overwritten = fs::file::write(fs::file::open::create(r2, existing), "AB")
+    set existing_content = fs::read(existing)
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/create-write", made, 3) { set ok = false }
+    if !use! harness::check_str("file/create-content", made_content, "abc") { set ok = false }
+    if !use! harness::check_i64("file/create-existing-write", overwritten, 2) { set ok = false }
+    if !use! harness::check_str("file/create-existing-keeps-tail", existing_content, "ABllo") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_truncate_success_and_limit_missing: () :bool {
+    // truncate is READ|WRITE|CREATE|TRUNCATE: it empties an existing file and
+    // creates a missing one.
+    set dir = use! harness::fixture_dir("fs/file", "truncate")
+    set existing = strings::copy(fs::path::join(dir, "existing.txt"))
+    use fs::write(existing, "hello")
+
+    set r1 = fs::root::open(".")
+    set emptied = fs::file::write(fs::file::open::truncate(r1, existing), "x")
+    set existing_content = fs::read(existing)
+
+    set missing = strings::copy(fs::path::join(dir, "missing.txt"))
+    set r2 = fs::root::open(".")
+    set made = fs::file::write(fs::file::open::truncate(r2, missing), "abc")
+    set missing_content = fs::read(missing)
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/truncate-write", emptied, 1) { set ok = false }
+    if !use! harness::check_str("file/truncate-content", existing_content, "x") { set ok = false }
+    if !use! harness::check_i64("file/truncate-missing-write", made, 3) { set ok = false }
+    if !use! harness::check_str("file/truncate-missing-content", missing_content, "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_seek_success: () :bool {
+    set dir = use! harness::fixture_dir("fs/file", "seek")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "hello")
+
+    set r1 = fs::root::open(".")
+    set begin = fs::file::seek(fs::file::open::read(r1, path), 0, fs::seek_begin())
+
+    set r2 = fs::root::open(".")
+    set current = fs::file::seek(fs::file::open::read(r2, path), 1, fs::seek_current())
+
+    set r3 = fs::root::open(".")
+    set from_end = fs::file::seek(fs::file::open::read(r3, path), -2, fs::seek_end())
+
+    set r4 = fs::root::open(".")
+    set beyond = fs::file::seek(fs::file::open::read(r4, path), 100, fs::seek_begin())
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/seek-begin", begin, 0) { set ok = false }
+    if !use! harness::check_i64("file/seek-current", current, 1) { set ok = false }
+    if !use! harness::check_i64("file/seek-end", from_end, 3) { set ok = false }
+    if !use! harness::check_i64("file/seek-beyond-eof", beyond, 100) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn file_seek_anomaly_invalid: () :bool {
+    // A negative result is the only error signal; there is no error code for
+    // a seek. Beyond-EOF positioning is legal (see the success case), a
+    // negative absolute offset and an unknown whence are not.
+    set dir = use! harness::fixture_dir("fs/file", "seek-bad")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "hello")
+
+    set r1 = fs::root::open(".")
+    set negative = fs::file::seek(fs::file::open::read(r1, path), -10, fs::seek_begin())
+
+    set r2 = fs::root::open(".")
+    set bad_whence = fs::file::seek(fs::file::open::read(r2, path), 0, 9 :i32)
+
+    set r3 = fs::root::open(".")
+    set missing = fs::file::seek(fs::file::open::read(r3, strings::copy(fs::path::join(dir, "ghost"))), 0, fs::seek_begin())
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/seek-negative", negative, -1) { set ok = false }
+    if !use! harness::check_i64("file/seek-bad-whence", bad_whence, -1) { set ok = false }
+    if !use! harness::check_i64("file/seek-missing", missing, -1) { set ok = false }
+    use! harness::anomaly("fs/file", "seek_invalid", "-10|9|missing", "-1", strings::from::i64(negative), negative == -1)
+    return ok
+}
+
+@[test]
+pub fn file_read_anomaly_zero_and_negative_max: () :bool {
+    // "Reads up to max_len bytes" is zero bytes for max_len 0, the same as
+    // POSIX read(2). The runtime returns -1, the error signal.
+    set dir = use! harness::fixture_dir("fs/file", "read-zero")
+    set path = strings::copy(fs::path::join(dir, "note.txt"))
+    use fs::write(path, "hello")
+
+    set r1 = fs::root::open(".")
+    set zero = fs::file::read(fs::file::open::read(r1, path), strings::repeat("\0", 4), 0)
+
+    set r2 = fs::root::open(".")
+    set negative = fs::file::read(fs::file::open::read(r2, path), strings::repeat("\0", 4), -1)
+
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_i64("file/read-zero", zero, 0) { set ok = false }
+    if !use! harness::check_i64("file/read-negative", negative, -1) { set ok = false }
+    use! harness::anomaly("fs/file", "read_zero_max", "max_len=0", "0", strings::from::i64(zero), zero == 0)
+    return ok
+}

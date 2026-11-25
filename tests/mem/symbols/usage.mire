@@ -1,0 +1,45 @@
+// Per-symbol suite: kioto::mem::{total,available,process}
+//
+// All three are byte counts. The invariants are relational: a machine has
+// memory, available cannot exceed total, and this process is resident
+// somewhere below the machine's total.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn total_success_is_positive: () :bool {
+    set total = mem::total()
+    set ok = true :bool mut
+    if !use! harness::check("mem/total/positive", total > 0) { set ok = false }
+    if !use! harness::check("mem/total/at-least-1mib", total >= 1048576) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn available_limit_is_within_total: () :bool {
+    set available = mem::available()
+    set total = mem::total()
+    set ok = true :bool mut
+    if !use! harness::check("mem/available/non-negative", available >= 0) { set ok = false }
+    if !use! harness::check("mem/available/within-total", available <= total) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn process_limit_is_positive_and_within_total: () :bool {
+    set rss = mem::process()
+    set total = mem::total()
+    set ok = true :bool mut
+    if !use! harness::check("mem/process/positive", rss > 0) { set ok = false }
+    if !use! harness::check("mem/process/within-total", rss <= total) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn available_anomaly_snapshot_is_logged: () :bool {
+    set available = mem::available()
+    set total = mem::total()
+    use! harness::anomaly("mem/available", "snapshot", "available<=total", "true", strings::from::bool(available <= total), available <= total)
+    return available <= total
+}

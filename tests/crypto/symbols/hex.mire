@@ -1,0 +1,92 @@
+// Per-symbol suite: kioto::crypto::encode::hex::{encode,decode}
+//
+// Lowercase on encode, either case on decode. A malformed pair stops the
+// decode with an empty vector. Values outside 0..255 are masked on encode.
+
+load kioto
+load! /tests/_support/harness
+
+fn byte_list: (a :i64, b :i64, c :i64, d :i64) :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, a)
+    set v = vec::push::i64(v, b)
+    set v = vec::push::i64(v, c)
+    set v = vec::push::i64(v, d)
+    return v
+}
+
+@[test]
+pub fn hex_encode_success: () :bool {
+    set got = crypto::encode::hex::encode(byte_list(0, 15, 16, 255))
+    set ok = use! harness::check_str("hex/encode", got, "000f10ff")
+    return ok
+}
+
+@[test]
+pub fn hex_encode_limit_empty: () :bool {
+    set empty = [] :vec[i64] mut
+    set ok = use! harness::check_str("hex/encode-empty", crypto::encode::hex::encode(empty), "")
+    return ok
+}
+
+@[test]
+pub fn hex_encode_anomaly_out_of_range_is_masked: () :bool {
+    set bytes = [] :vec[i64] mut
+    set bytes = vec::push::i64(bytes, -1)
+    set bytes = vec::push::i64(bytes, 256)
+    set bytes = vec::push::i64(bytes, 257)
+    set got = crypto::encode::hex::encode(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_str("hex/encode-masked", got, "ff0001") { set ok = false }
+    use! harness::anomaly("crypto/hex", "encode_out_of_range", "-1,256,257", "ff0001", got, got == "ff0001")
+    return ok
+}
+
+@[test]
+pub fn hex_decode_success: () :bool {
+    set bytes = crypto::encode::hex::decode("000f10ff")
+    set ok = true :bool mut
+    if !use! harness::check_i64("hex/decode-len", vec::len(bytes), 4) { set ok = false }
+    if !use! harness::check_i64("hex/decode-first", vec::get::i64(bytes, 0), 0) { set ok = false }
+    if !use! harness::check_i64("hex/decode-last", vec::get::i64(bytes, 3), 255) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn hex_decode_limit_uppercase: () :bool {
+    set bytes = crypto::encode::hex::decode("ABCDEF")
+    set ok = true :bool mut
+    if !use! harness::check_i64("hex/decode-upper-len", vec::len(bytes), 3) { set ok = false }
+    if !use! harness::check_i64("hex/decode-upper-first", vec::get::i64(bytes, 0), 171) { set ok = false }
+    if !use! harness::check_i64("hex/decode-upper-last", vec::get::i64(bytes, 2), 239) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn hex_decode_limit_odd_length_stops_before_the_pair: () :bool {
+    // "abc" is one complete byte and one dangling character; the documented
+    // behaviour is to stop at the character that cannot form a pair.
+    set bytes = crypto::encode::hex::decode("abc")
+    set ok = true :bool mut
+    if !use! harness::check_i64("hex/decode-odd-len", vec::len(bytes), 1) { set ok = false }
+    if !use! harness::check_i64("hex/decode-odd-value", vec::get::i64(bytes, 0), 171) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn hex_decode_anomaly_invalid_digit_returns_empty: () :bool {
+    set bytes = crypto::encode::hex::decode("zz")
+    set got = vec::len(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_i64("hex/decode-invalid-len", got, 0) { set ok = false }
+    use! harness::anomaly("crypto/hex", "decode_invalid", "zz", "0 bytes", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn hex_roundtrip: () :bool {
+    set decoded = crypto::encode::hex::decode("00ff10ab")
+    set got = crypto::encode::hex::encode(decoded)
+    set ok = use! harness::check_str("hex/roundtrip", got, "00ff10ab")
+    return ok
+}

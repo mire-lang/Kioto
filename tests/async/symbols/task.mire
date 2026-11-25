@@ -1,0 +1,33 @@
+// Per-symbol suite: kioto::async::task::{ready,value}
+//
+// Task is a finished value wrapper. No scheduling, no promises.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn ready_then_value: () :bool {
+    set t = async::task::ready("hello")
+    set got = async::task::value(t, "fallback")
+    set ok = use! harness::check_str("async/task/ready", got, "hello")
+    return ok
+}
+
+@[test]
+pub fn value_with_fallback: () :bool {
+    // Task has a value, fallback is ignored.
+    set t = async::task::ready("actual")
+    set got = async::task::value(t, "fallback")
+    set ok = use! harness::check_str("async/task/fallback", got, "actual")
+    return ok
+}
+
+@[test]
+pub fn value_empty_task: () :bool {
+    // A Task with empty string value returns the empty string, not the fallback.
+    // The fallback parameter is currently ignored by the implementation.
+    set t = async::task::ready("")
+    set got = async::task::value(t, "fallback")
+    set ok = use! harness::check_str("async/task/empty", got, "")
+    return ok
+}

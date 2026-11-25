@@ -1,0 +1,137 @@
+// Per-symbol suite: kioto::crypto::encode::base64::{encode,decode,encode_file}
+//
+// Standard alphabet with padding. A bad length, a bad character or padding in
+// the wrong place gives an empty vector rather than a partial decode.
+
+load kioto
+load! /tests/_support/harness
+
+fn bytes_of_abc: () :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, 97)
+    set v = vec::push::i64(v, 98)
+    set v = vec::push::i64(v, 99)
+    return v
+}
+
+fn bytes_of_ab: () :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, 97)
+    set v = vec::push::i64(v, 98)
+    return v
+}
+
+fn bytes_of_a: () :vec[i64] {
+    set v = [] :vec[i64] mut
+    set v = vec::push::i64(v, 97)
+    return v
+}
+
+@[test]
+pub fn base64_encode_success: () :bool {
+    set ok = use! harness::check_str("base64/encode-abc", crypto::encode::base64::encode(bytes_of_abc()), "YWJj")
+    return ok
+}
+
+@[test]
+pub fn base64_encode_limit_padding: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("base64/encode-ab", crypto::encode::base64::encode(bytes_of_ab()), "YWI=") { set ok = false }
+    if !use! harness::check_str("base64/encode-a", crypto::encode::base64::encode(bytes_of_a()), "YQ==") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn base64_encode_limit_empty: () :bool {
+    set empty = [] :vec[i64] mut
+    set ok = use! harness::check_str("base64/encode-empty", crypto::encode::base64::encode(empty), "")
+    return ok
+}
+
+@[test]
+pub fn base64_encode_anomaly_out_of_range_is_masked: () :bool {
+    set bytes = [] :vec[i64] mut
+    set bytes = vec::push::i64(bytes, -1)
+    set bytes = vec::push::i64(bytes, 256)
+    set got = crypto::encode::base64::encode(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_str("base64/encode-masked", got, "/wA=") { set ok = false }
+    use! harness::anomaly("crypto/base64", "encode_out_of_range", "-1,256", "/wA=", got, got == "/wA=")
+    return ok
+}
+
+@[test]
+pub fn base64_decode_success: () :bool {
+    set bytes = crypto::encode::base64::decode("YWJj")
+    set ok = true :bool mut
+    if !use! harness::check_i64("base64/decode-len", vec::len(bytes), 3) { set ok = false }
+    if !use! harness::check_i64("base64/decode-first", vec::get::i64(bytes, 0), 97) { set ok = false }
+    if !use! harness::check_i64("base64/decode-last", vec::get::i64(bytes, 2), 99) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn base64_decode_limit_padding: () :bool {
+    set one = crypto::encode::base64::decode("YQ==")
+    set two = crypto::encode::base64::decode("YWI=")
+    set ok = true :bool mut
+    if !use! harness::check_i64("base64/decode-one-len", vec::len(one), 1) { set ok = false }
+    if !use! harness::check_i64("base64/decode-one-value", vec::get::i64(one, 0), 97) { set ok = false }
+    if !use! harness::check_i64("base64/decode-two-len", vec::len(two), 2) { set ok = false }
+    if !use! harness::check_i64("base64/decode-two-last", vec::get::i64(two, 1), 98) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn base64_decode_anomaly_bad_length: () :bool {
+    set bytes = crypto::encode::base64::decode("abc")
+    set got = vec::len(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_i64("base64/decode-bad-length", got, 0) { set ok = false }
+    use! harness::anomaly("crypto/base64", "decode_bad_length", "abc", "0 bytes", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn base64_decode_anomaly_bad_character: () :bool {
+    set bytes = crypto::encode::base64::decode("!!!!")
+    set got = vec::len(bytes)
+    set ok = true :bool mut
+    if !use! harness::check_i64("base64/decode-bad-char", got, 0) { set ok = false }
+    use! harness::anomaly("crypto/base64", "decode_bad_char", "!!!!", "0 bytes", strings::from::i64(got), got == 0)
+    return ok
+}
+
+@[test]
+pub fn base64_roundtrip: () :bool {
+    set decoded = crypto::encode::base64::decode("YWJjZGVm")
+    set got = crypto::encode::base64::encode(decoded)
+    set ok = true :bool mut
+    if !use! harness::check_str("base64/roundtrip", got, "YWJjZGVm") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn base64_encode_file_success: () :bool {
+    set dir = use! harness::fixture_dir("crypto/base64", "file")
+    set path = fs::path::join(dir, "abc.txt")
+    set wrote = fs::write(path, "abc")
+    set got = crypto::encode::base64::encode_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check("base64/file/wrote", wrote) { set ok = false }
+    if !use! harness::check_str("base64/file/abc", got, "YWJj") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn base64_encode_file_anomaly_missing_is_empty: () :bool {
+    set dir = use! harness::fixture_dir("crypto/base64", "missing")
+    set path = fs::path::join(dir, "not-there.bin")
+    set got = crypto::encode::base64::encode_file(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_str("base64/file/missing", got, "") { set ok = false }
+    use! harness::anomaly("crypto/base64", "encode_missing_file", "not-there.bin", "", got, got == "")
+    return ok
+}

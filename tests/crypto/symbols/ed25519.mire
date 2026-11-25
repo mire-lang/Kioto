@@ -1,0 +1,120 @@
+// Per-symbol suite: kioto::crypto::sign::ed25519
+//
+// A raw signature is returned as a str, but a str is NUL-terminated: roughly
+// one signature in five contains a zero byte and is truncated before verify
+// sees it. The success path therefore searches a small set of messages for a
+// NUL-free signature, and the frequency of truncated ones is logged instead
+// of being asserted away.
+//
+// verify_b64 / verify_file need a base64 public key, which this API cannot
+// export yet; only their empty-input guards are tested.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn sign_and_verify_success: () :bool {
+    set sk = crypto::sign::ed25519::secret::new()
+    set pk = crypto::sign::ed25519::secret::public(sk)
+    // Each signature is verified in the same iteration it was produced. A
+    // mutable str assignment that survives an iteration is not reliable in
+    // the current code generator, and the API's raw signatures are not safe
+    // to keep alive across allocations anyway.
+    set clean = 0 :i64 mut
+    set verified = 0 :i64 mut
+    set tampered_rejected = 0 :i64 mut
+    set truncated_rejected = 0 :i64 mut
+    set i = 0 :i64 mut
+    while i < 16 {
+        set candidate = strings::concat("ed25519-suite-", strings::from::i64(i))
+        set sig = crypto::sign::ed25519::secret::sign(sk, candidate)
+        if strings::len(sig) == 64 {
+            set clean += 1
+            if crypto::sign::ed25519::public::verify(pk, candidate, sig) { set verified += 1 }
+            set bad = strings::concat(candidate, "x")
+            if !crypto::sign::ed25519::public::verify(pk, bad, sig) { set tampered_rejected += 1 }
+            set cut = strings::substr(sig, 0, 63)
+            if !crypto::sign::ed25519::public::verify(pk, candidate, cut) { set truncated_rejected += 1 }
+        }
+        set i += 1
+    }
+    use crypto::sign::ed25519::secret::close(sk)
+    use crypto::sign::ed25519::public::close(pk)
+    set ok = true :bool mut
+    if !use! harness::check("ed25519/sign/at-least-one-clean", clean >= 1) { set ok = false }
+    if !use! harness::check("ed25519/verify/true", verified >= 1) { set ok = false }
+    if !use! harness::check_i64("ed25519/verify/all-clean-verified", verified, clean) { set ok = false }
+    if !use! harness::check_i64("ed25519/verify/tampered", tampered_rejected, clean) { set ok = false }
+    if !use! harness::check_i64("ed25519/verify/truncated", truncated_rejected, clean) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sign_limit_empty_message: () :bool {
+    set sk = crypto::sign::ed25519::secret::new()
+    set pk = crypto::sign::ed25519::secret::public(sk)
+    set sig = crypto::sign::ed25519::secret::sign(sk, "")
+    set ok = true :bool mut
+    if strings::len(sig) == 64 {
+        if !use! harness::check("ed25519/empty-message/verify", crypto::sign::ed25519::public::verify(pk, "", sig)) { set ok = false }
+    } else {
+        // A truncated raw signature is a known limitation, not a crash.
+        if !use! harness::check("ed25519/empty-message/truncated", strings::len(sig) < 64) { set ok = false }
+        use! harness::anomaly("crypto/ed25519", "empty_message_truncated", "", "64-byte sig", strings::from::i64(strings::len(sig)), true)
+    }
+    use crypto::sign::ed25519::secret::close(sk)
+    use crypto::sign::ed25519::public::close(pk)
+    return ok
+}
+
+@[test]
+pub fn sign_anomaly_nul_byte_frequency_is_logged: () :bool {
+    set sk = crypto::sign::ed25519::secret::new()
+    set truncated = 0 :i64 mut
+    set i = 0 :i64 mut
+    while i < 16 {
+        set msg = strings::concat("nul-probe-", strings::from::i64(i))
+        set sig = crypto::sign::ed25519::secret::sign(sk, msg)
+        if strings::len(sig) != 64 { set truncated += 1 }
+        set i += 1
+    }
+    use crypto::sign::ed25519::secret::close(sk)
+    use! harness::anomaly("crypto/ed25519", "raw_signature_nul_truncation", "16 signatures", "0 truncated", strings::from::i64(truncated), truncated == 0)
+    // The truncation itself is the documented anomaly; the test passes as
+    // long as the count is reported, which it always is.
+    return true
+}
+
+@[test]
+pub fn verify_anomaly_empty_signature_is_false: () :bool {
+    set sk = crypto::sign::ed25519::secret::new()
+    set pk = crypto::sign::ed25519::secret::public(sk)
+    set got = crypto::sign::ed25519::public::verify(pk, "hello", "")
+    use crypto::sign::ed25519::secret::close(sk)
+    use crypto::sign::ed25519::public::close(pk)
+    set ok = true :bool mut
+    if !use! harness::check_false("ed25519/verify/empty-sig", got) { set ok = false }
+    use! harness::anomaly("crypto/ed25519", "verify_empty_signature", "\"\"", "false", strings::from::bool(got), !got)
+    return ok
+}
+
+@[test]
+pub fn verify_b64_and_file_limit_empty_inputs: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_false("ed25519/verify_b64/empty-key", crypto::sign::ed25519::public::verify_b64("", "data", "sig")) { set ok = false }
+    if !use! harness::check_false("ed25519/verify_b64/empty-sig", crypto::sign::ed25519::public::verify_b64("key", "data", "")) { set ok = false }
+    if !use! harness::check_false("ed25519/verify_file/empty-key", crypto::sign::ed25519::public::verify_file("", "data", "sig")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn raw_b64_from_pem_anomaly_missing_file_is_empty: () :bool {
+    set dir = use! harness::fixture_dir("crypto/ed25519", "pem")
+    set path = fs::path::join(dir, "missing.pem")
+    set got = crypto::sign::ed25519::public::raw_b64_from_pem(path)
+    use! harness::fixture_cleanup(dir)
+    set ok = true :bool mut
+    if !use! harness::check_str("ed25519/pem/missing", got, "") { set ok = false }
+    use! harness::anomaly("crypto/ed25519", "pem_missing", "missing.pem", "", got, got == "")
+    return ok
+}

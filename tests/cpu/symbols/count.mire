@@ -1,0 +1,29 @@
+// Per-symbol suite: kioto::cpu::count
+//
+// A worker-pool default needs a positive, plausible core count. The upper
+// bound is only a sanity check against a unit or sign error.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn count_success_is_at_least_one: () :bool {
+    set ok = use! harness::check("cpu/count/at-least-one", cpu::count() >= 1)
+    return ok
+}
+
+@[test]
+pub fn count_limit_is_plausible: () :bool {
+    set ok = use! harness::check("cpu/count/plausible", cpu::count() <= 4096)
+    return ok
+}
+
+@[test]
+pub fn count_anomaly_is_stable_across_calls: () :bool {
+    set first = cpu::count()
+    set second = cpu::count()
+    set ok = true :bool mut
+    if !use! harness::check_i64("cpu/count/stable", second, first) { set ok = false }
+    use! harness::anomaly("cpu/count", "stable", "two calls", strings::from::i64(first), strings::from::i64(second), first == second)
+    return ok
+}

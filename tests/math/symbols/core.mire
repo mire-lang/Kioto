@@ -1,0 +1,174 @@
+// Per-symbol suite: kioto::math::{abs,sign,min,max,clamp}
+// and kioto::math::trunc::{f64,floor,ceil,round}
+
+load kioto
+load! /tests/_support/harness
+
+// Helper: float equality with tolerance
+fn feq: (a :f64, b :f64) :bool {
+    set diff = if a > b { a - b } else { b - a }
+    return diff < 0.0000001
+}
+
+fn is_inf: (x :f64) :bool {
+    return x == 1.0 / 0.0 || x == -1.0 / 0.0
+}
+
+fn feq_inf: (a :f64, b :f64) :bool {
+    if is_inf(a) && is_inf(b) {
+        return (a > 0.0 && b > 0.0) || (a < 0.0 && b < 0.0)
+    }
+    return feq(a, b)
+}
+
+@[test]
+pub fn abs_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/abs/pos", feq(math::abs(3.5), 3.5)) { set ok = false }
+    if !use! harness::check("math/abs/neg", feq(math::abs(-2.5), 2.5)) { set ok = false }
+    if !use! harness::check("math/abs/zero", feq(math::abs(0.0), 0.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn abs_anomaly_nan: () :bool {
+    // NaN != NaN, so abs(NaN) returns NaN unchanged.
+    set got = math::abs(0.0 / 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/abs/nan", got != got) { set ok = false }  // NaN check
+    use! harness::anomaly("math/abs", "nan", "NaN", "NaN", strings::from::f64(got), got != got)
+    return ok
+}
+
+@[test]
+pub fn sign_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/sign/pos", feq(math::sign(5.0), 1.0)) { set ok = false }
+    if !use! harness::check("math/sign/neg", feq(math::sign(-3.0), -1.0)) { set ok = false }
+    if !use! harness::check("math/sign/zero", feq(math::sign(0.0), 0.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn sign_anomaly_nan: () :bool {
+    // NaN has no sign, returns 0.0.
+    set got = math::sign(0.0 / 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/sign/nan", feq(got, 0.0)) { set ok = false }
+    use! harness::anomaly("math/sign", "nan", "NaN", "0.0", strings::from::f64(got), feq(got, 0.0))
+    return ok
+}
+
+@[test]
+pub fn min_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/min/a-b", feq(math::min(3.0, 5.0), 3.0)) { set ok = false }
+    if !use! harness::check("math/min/b-a", feq(math::min(5.0, 3.0), 3.0)) { set ok = false }
+    if !use! harness::check("math/min/equal", feq(math::min(2.0, 2.0), 2.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn min_anomaly_nan_propagates: () :bool {
+    // min with NaN returns the non-NaN value (not NaN propagation).
+    // This is the current behavior; the anomaly documents the deviation
+    // from IEEE 754 NaN propagation.
+    set got1 = math::min(0.0 / 0.0, 5.0)
+    set got2 = math::min(5.0, 0.0 / 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/min/nan-first-is-5", feq(got1, 5.0)) { set ok = false }
+    if !use! harness::check("math/min/nan-second-is-nan", got2 != got2) { set ok = false }  // -nan
+    use! harness::anomaly("math/min", "nan_propagates", "NaN|5", "5 (not NaN)", strings::from::f64(got1), feq(got1, 5.0))
+    return ok
+}
+
+@[test]
+pub fn max_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/max/a-b", feq(math::max(3.0, 5.0), 5.0)) { set ok = false }
+    if !use! harness::check("math/max/b-a", feq(math::max(5.0, 3.0), 5.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn max_anomaly_nan_propagates: () :bool {
+    // max with NaN returns the non-NaN value (not NaN propagation).
+    set got1 = math::max(0.0 / 0.0, 5.0)
+    set got2 = math::max(5.0, 0.0 / 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/max/nan-first-is-5", feq(got1, 5.0)) { set ok = false }
+    if !use! harness::check("math/max/nan-second-is-nan", got2 != got2) { set ok = false }
+    use! harness::anomaly("math/max", "nan_propagates", "NaN|5", "5 (not NaN)", strings::from::f64(got1), feq(got1, 5.0))
+    return ok
+}
+
+@[test]
+pub fn clamp_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/clamp/in-range", feq(math::clamp(5.0, 0.0, 10.0), 5.0)) { set ok = false }
+    if !use! harness::check("math/clamp/below", feq(math::clamp(-1.0, 0.0, 10.0), 0.0)) { set ok = false }
+    if !use! harness::check("math/clamp/above", feq(math::clamp(15.0, 0.0, 10.0), 10.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn clamp_anomaly_reversed_range: () :bool {
+    // The current implementation doesn't check for reversed range.
+    // clamp(5, 10, 0) returns lo (10) because 5 < 10.
+    set got = math::clamp(5.0, 10.0, 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/clamp/reversed", feq(got, 10.0)) { set ok = false }
+    use! harness::anomaly("math/clamp", "reversed", "5|10|0", "10.0 (lo, not hi)", strings::from::f64(got), feq(got, 10.0))
+    return ok
+}
+
+@[test]
+pub fn trunc_f64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/trunc/pos", feq(math::trunc::f64(3.7), 3.0)) { set ok = false }
+    if !use! harness::check("math/trunc/neg", feq(math::trunc::f64(-2.7), -2.0)) { set ok = false }
+    if !use! harness::check("math/trunc/zero", feq(math::trunc::f64(0.0), 0.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn floor_f64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/floor/pos", feq(math::floor::f64(3.7), 3.0)) { set ok = false }
+    if !use! harness::check("math/floor/neg", feq(math::floor::f64(-2.7), -3.0)) { set ok = false }
+    if !use! harness::check("math/floor/int", feq(math::floor::f64(5.0), 5.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ceil_f64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/ceil/pos", feq(math::ceil::f64(3.2), 4.0)) { set ok = false }
+    if !use! harness::check("math/ceil/neg", feq(math::ceil::f64(-2.2), -2.0)) { set ok = false }
+    if !use! harness::check("math/ceil/int", feq(math::ceil::f64(5.0), 5.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn round_f64_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("math/round/pos", feq(math::round::f64(2.3), 2.0)) { set ok = false }
+    if !use! harness::check("math/round/half-up", feq(math::round::f64(2.5), 3.0)) { set ok = false }
+    if !use! harness::check("math/round/neg", feq(math::round::f64(-2.3), -2.0)) { set ok = false }
+    if !use! harness::check("math/round/half-down", feq(math::round::f64(-2.5), -3.0)) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn round_anomaly_nan_and_inf: () :bool {
+    // NaN is returned as NaN, infinities are returned unchanged.
+    set nan = math::round::f64(0.0 / 0.0)
+    set pinf = math::round::f64(1.0 / 0.0)
+    set ninf = math::round::f64(-1.0 / 0.0)
+    set ok = true :bool mut
+    if !use! harness::check("math/round/nan", nan != nan) { set ok = false }
+    if !use! harness::check("math/round/pinf", feq_inf(pinf, 1.0 / 0.0)) { set ok = false }
+    if !use! harness::check("math/round/ninf", feq_inf(ninf, -1.0 / 0.0)) { set ok = false }
+    use! harness::anomaly("math/round", "nan", "NaN", "NaN", strings::from::f64(nan), nan != nan)
+    return ok
+}

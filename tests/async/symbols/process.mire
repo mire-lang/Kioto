@@ -1,0 +1,39 @@
+// Per-symbol suite: kioto::async::{spawn,wait}
+//
+// Low-level process spawning without waiting. The command is a single string
+// (not split on spaces).
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn spawn_then_wait: () :bool {
+    // Start a child that exits immediately.
+    set pid = async::spawn("true")
+    set ok = true :bool mut
+    if pid > 0 {
+        set exit = async::wait(pid)
+        if !use! harness::check_i64("async/process/wait", exit, 0) { set ok = false }
+    } else {
+        if !use! harness::check("async/process/spawn", pid > 0) { set ok = false }
+    }
+    return ok
+}
+
+@[test]
+pub fn spawn_failure: () :bool {
+    // A non-existent command gives a pid, but wait returns 127.
+    set pid = async::spawn("/does/not/exist-9f3a")
+    if pid > 0 {
+        set exit = async::wait(pid)
+        return use! harness::check_i64("async/process/missing", exit, 127)
+    }
+    return true
+}
+
+@[test]
+pub fn wait_invalid_pid: () :bool {
+    // Waiting on an invalid pid returns -1.
+    set exit = async::wait(-1)
+    return use! harness::check_i64("async/process/invalid", exit, -1)
+}

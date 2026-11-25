@@ -1,0 +1,62 @@
+// Per-symbol suite: kioto::math::seq::{range,between,step,repeat,take,drop}
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn range_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/range/5", vec::len(math::seq::range(5)), 5) { set ok = false }
+    if !use! harness::check_i64("math/seq/range/0", vec::len(math::seq::range(0)), 0) { set ok = false }
+    if !use! harness::check_i64("math/seq/range/neg", vec::len(math::seq::range(-3)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn between_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/between/2-6", vec::len(math::seq::between(2, 6)), 4) { set ok = false }
+    if !use! harness::check_i64("math/seq/between/6-2", vec::len(math::seq::between(6, 2)), 4) { set ok = false }
+    if !use! harness::check_i64("math/seq/between/equal", vec::len(math::seq::between(3, 3)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn step_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/step/0-10-3", vec::len(math::seq::step(0, 10, 3)), 4) { set ok = false }
+    if !use! harness::check_i64("math/seq/step/10-0--1", vec::len(math::seq::step(10, 0, -1)), 10) { set ok = false }
+    if !use! harness::check_i64("math/seq/step/zero-stride", vec::len(math::seq::step(0, 10, 0)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn repeat_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/repeat/5x", vec::len(math::seq::repeat(7, 5)), 5) { set ok = false }
+    if !use! harness::check_i64("math/seq/repeat/0x", vec::len(math::seq::repeat(7, 0)), 0) { set ok = false }
+    if !use! harness::check_i64("math/seq/repeat/neg", vec::len(math::seq::repeat(7, -1)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn take_success: () :bool {
+    set v = math::seq::range(10)
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/take/3", vec::len(math::seq::take(v, 3)), 3) { set ok = false }
+    if !use! harness::check_i64("math/seq/take/0", vec::len(math::seq::take(v, 0)), 0) { set ok = false }
+    if !use! harness::check_i64("math/seq/take/15", vec::len(math::seq::take(v, 15)), 10) { set ok = false }
+    if !use! harness::check_i64("math/seq/take/-1", vec::len(math::seq::take(v, -1)), 0) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn drop_success: () :bool {
+    set v = math::seq::range(10)
+    set ok = true :bool mut
+    if !use! harness::check_i64("math/seq/drop/3", vec::len(math::seq::drop(v, 3)), 7) { set ok = false }
+    if !use! harness::check_i64("math/seq/drop/0", vec::len(math::seq::drop(v, 0)), 10) { set ok = false }
+    if !use! harness::check_i64("math/seq/drop/12", vec::len(math::seq::drop(v, 12)), 0) { set ok = false }
+    if !use! harness::check_i64("math/seq/drop/-1", vec::len(math::seq::drop(v, -1)), 10) { set ok = false }
+    return ok
+}

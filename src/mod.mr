@@ -1,4 +1,4 @@
-// Kioto 3.0.0 — package entry point.
+// Kioto 3.1.0 — package entry point.
 //
 // A bare `load kioto` resolves to this file, so it is what makes the whole
 // library visible to a consumer: each `load` below pulls in one [exports] entry
@@ -40,13 +40,8 @@ load kioto::crypto
 // Intended for `use dasu(kioto::status())` or direct `use kioto::status()`
 // to inspect what a loaded library provides.
 pub fn status: () :str {
-    set report = "════════════════════════════════════════════════════════════════" :str mut
-    set report = report + "\nLibrary:    kioto" + "\n"
-    set report = report + "Version:    3.1.0" + "\n"
-    set report = report + "Description: Kioto is the Avenys/mire standard library" + "\n"
-    set report = report + "Runtime:    Mire / Avenys (minimal tier)" + "\n"
-    set report = report + "Exports:    strings, time, fs, env, proc, async, mem, cpu, math, net, log, cli, crypto" + "\n"
-    set report = report + "Status:     active" + "\n"
-    set report = report + "════════════════════════════════════════════════════════════════" + "\n"
-    return report
+    // One literal with explicit \n escapes. Mire strings cannot span source
+    // lines, and a long `report + ...` chain is mis-compiled by the current
+    // optimizer, so this is the form that survives both.
+    return "════════════════════════════════════════════════════════════════\nLibrary:      kioto\nVersion:      3.1.0\nStatus:       beta (active)\nABI:          mire >=0.15.0, abi 1\nDescription:  Kioto is the Avenys/Mire standard library\nRuntime:      Mire / Avenys (minimal tier)\nRegistry:     mor\nNamespaces:\n  kioto::strings  UTF-8 strings and formatting\n  kioto::time     clocks, sleep, formatting\n  kioto::fs       filesystem and paths\n  kioto::env      process environment\n  kioto::proc     processes, shell, exit status\n  kioto::async    tasks and spawning\n  kioto::mem      memory statistics\n  kioto::cpu      CPU information\n  kioto::math     scalar math, lists, random, sequences\n  kioto::net      TCP/UDP sockets, listeners, WebSocket (net::ws)\n  kioto::log      structured logging\n  kioto::cli      argument parsing and terminal output\n  kioto::crypto   hashes, HMAC, Ed25519\nExports:      strings, time, fs, env, proc, async, mem, cpu, math, net, log, cli, crypto\nDependencies: mire\nKnown limits: math complex/decimal/hyperbolic/special are not exported yet\n════════════════════════════════════════════════════════════════\n"
 }

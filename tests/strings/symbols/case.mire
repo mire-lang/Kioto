@@ -1,0 +1,57 @@
+// Per-symbol suite: kioto::strings::{upper,lower}
+//
+// The documented contract is ASCII-only: bytes above 127 are left alone,
+// because the module has no case table for them. upper honours that; lower
+// currently corrupts a non-ASCII byte, which the anomaly case makes visible.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn upper_success_ascii: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("upper/ascii", strings::upper("aBc"), "ABC") { set ok = false }
+    if !use! harness::check_str("upper/digits", strings::upper("a1-b2"), "A1-B2") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn upper_limit_empty: () :bool {
+    set ok = use! harness::check_str("upper/empty", strings::upper(""), "")
+    return ok
+}
+
+@[test]
+pub fn upper_anomaly_non_ascii_untouched: () :bool {
+    set ok = true :bool mut
+    set got = strings::upper("ñ")
+    if !use! harness::check_str("upper/utf8", got, "ñ") { set ok = false }
+    use! harness::anomaly("strings/upper", "utf8", "ñ", "ñ", got, got == "ñ")
+    return ok
+}
+
+@[test]
+pub fn lower_success_ascii: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("lower/ascii", strings::lower("AbC"), "abc") { set ok = false }
+    if !use! harness::check_str("lower/digits", strings::lower("A1-B2"), "a1-b2") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn lower_limit_empty: () :bool {
+    set ok = use! harness::check_str("lower/empty", strings::lower(""), "")
+    return ok
+}
+
+@[test]
+pub fn lower_anomaly_non_ascii_untouched: () :bool {
+    // Documented: ASCII lowercase, bytes above 127 left alone (same limit as
+    // upper). The current runtime rewrites the leading byte of "Ñ" to 0xE3,
+    // so this asserts the contract and fails until the runtime is fixed.
+    set ok = true :bool mut
+    set got = strings::lower("Ñ")
+    if !use! harness::check_str("lower/utf8", got, "Ñ") { set ok = false }
+    use! harness::anomaly("strings/lower", "utf8", "Ñ", "Ñ", got, got == "Ñ")
+    return ok
+}

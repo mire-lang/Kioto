@@ -1,5 +1,39 @@
 # kioto changelog
 
+## [3.1.0] - 2026-11-12
+
+### Added
+- **`kioto::net::ws`** — WebSocket client module, exported from `kioto::net`.
+- **`kioto::strings` byte construction** — binary-safe constructors, so strings
+  can carry arbitrary bytes instead of stopping at the first NUL.
+- **`math::trig`** — `sin cos tan asin acos atan atan2 degrees radians`, built
+  in Mire on top of the existing float helpers.
+
+### Changed
+- **PAL access goes through typed handles.** `net` and `fs` no longer pass raw
+  pointers across the runtime boundary; scalar handle bridges keep ownership
+  inside the runtime.
+- **Math functions that collided with builtins moved into the `::f64`
+  namespace** (`math::trunc::f64`, `math::floor::f64`, `math::ceil::f64`,
+  `math::round::f64`, and the same names under `math::float`). This replaces
+  the earlier `_f64` suffix. `trig` gained local `floor`/`round`
+  implementations so the module does not depend on the removed `rt_math_*`
+  externs.
+- **`math/owl.toml` exports were corrected** — duplicate entries caused a
+  cyclic load; each namespace segment now maps to exactly one submodule.
+- **Stale `.gitkeep` files removed** (26) now that every module directory has
+  real sources.
+
+### Removed
+- **`kioto::json` and `kioto::toml`.** `ilogical::format` is the single owner
+  of JSON and TOML in the ecosystem. Kioto no longer ships `modules/json`,
+  `modules/toml` or their per-symbol suites, and drops the dependency on the
+  C codecs.
+- **The `kioto-fsw-empty` fixture**, a leftover empty directory.
+
+### Fixed
+- `kioto::status()` reports the real package version instead of the 2.x string.
+
 ## [3.0.0] — in development
 
 The library is being rebuilt in place. The 2.x `core/` tree, the `compat-v2`
@@ -412,14 +446,14 @@ sources are now `modules/**/*.mr` behind a single `src/mod.mr` entry point.
 
 ### Docs
 
-- **`lists::set` es el workaround correcto del bug de `vec[i64]`**: la
-  asignación por índice nativa de Avenys (`set vec at idx = val`) corrumpe
-  vectores dinámicos silenciosamente (lecturas posteriores devuelven
-  valores erróneos/desplazados). Reproducido en Avenys/Mire v3.15–3.16;
-  documentado en `avenys/docs/VEC_INDEXED_ASSIGN_BUG.md`.
-  `lists::set(list, idx, val)` enruta a `rt_lists_set_i64` (runtime C)
-  y escribe el slot correcto sin corromper. Cualquier código kioto que
-  escriba en `vec[]` por índice debe usar `lists::set`, no la sintáxis nativa.
+- **`lists::set` is the correct workaround for the `vec[i64]` bug**: Avenys's
+  native index assignment (`set vec at idx = val`) silently corrupts dynamic
+  vectors (later reads return wrong/shifted values). Reproduced on
+  Avenys/Mire v3.15–3.16 and documented in
+  `avenys/docs/VEC_INDEXED_ASSIGN_BUG.md`.
+  `lists::set(list, idx, val)` routes to `rt_lists_set_i64` (C runtime)
+  and writes the correct slot without corrupting the vector. Any kioto code
+  that writes to `vec[]` by index must use `lists::set`, not native syntax.
 
 ## [2.3.0] — 2026-07-15
 

@@ -1,0 +1,81 @@
+// Per-symbol suite: kioto::math::consts
+
+load kioto
+load! /tests/_support/harness
+
+fn feq: (a :f64, b :f64) :bool {
+    set diff = if a > b { a - b } else { b - a }
+    return diff < 0.0000001
+}
+
+@[test]
+pub fn pi_success: () :bool {
+    set ok = use! harness::check("math/consts/pi", feq(math::consts::pi(), 3.141592653589793))
+    return ok
+}
+
+@[test]
+pub fn tau_success: () :bool {
+    set ok = use! harness::check("math/consts/tau", feq(math::consts::tau(), 6.283185307179586))
+    return ok
+}
+
+@[test]
+pub fn e_success: () :bool {
+    set ok = use! harness::check("math/consts/e", feq(math::consts::e(), 2.718281828459045))
+    return ok
+}
+
+@[test]
+pub fn phi_success: () :bool {
+    set ok = use! harness::check("math/consts/phi", feq(math::consts::phi(), 1.618033988749895))
+    return ok
+}
+
+@[test]
+pub fn golden_success: () :bool {
+    set ok = use! harness::check("math/consts/golden", feq(math::consts::golden(), 0.618033988749895))
+    return ok
+}
+
+@[test]
+pub fn sqrt2_success: () :bool {
+    set ok = use! harness::check("math/consts/sqrt2", feq(math::consts::sqrt2(), 1.4142135623730951))
+    return ok
+}
+
+@[test]
+pub fn sqrt3_success: () :bool {
+    set ok = use! harness::check("math/consts/sqrt3", feq(math::consts::sqrt3(), 1.7320508075688772))
+    return ok
+}
+
+@[test]
+pub fn sqrt5_success: () :bool {
+    set ok = use! harness::check("math/consts/sqrt5", feq(math::consts::sqrt5(), 2.23606797749979))
+    return ok
+}
+
+@[test]
+pub fn ln2_success: () :bool {
+    set ok = use! harness::check("math/consts/ln2", feq(math::consts::ln2(), 0.6931471805599453))
+    return ok
+}
+
+@[test]
+pub fn ln10_success: () :bool {
+    set ok = use! harness::check("math/consts/ln10", feq(math::consts::ln10(), 2.302585092994046))
+    return ok
+}
+
+@[test]
+pub fn log2e_success: () :bool {
+    set ok = use! harness::check("math/consts/log2e", feq(math::consts::log2e(), 1.4426950408889634))
+    return ok
+}
+
+@[test]
+pub fn epsilon_success: () :bool {
+    set ok = use! harness::check("math/consts/epsilon", feq(math::consts::epsilon(), 2.220446049250313e-16))
+    return ok
+}

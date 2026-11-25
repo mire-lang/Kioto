@@ -1,0 +1,79 @@
+// Per-symbol suite: kioto::cli::parse
+//
+// parse turns argv into a lookup table: argv[0] under "command", every
+// --flag taking the following argument as its value. The documented "flag
+// with nothing behind it is stored as 1" case currently drops the flag, so
+// that case fails until the implementation matches its comment.
+
+load kioto
+load mire::map
+load! /tests/_support/harness
+
+@[test]
+pub fn parse_success_command_only: () :bool {
+    set parsed = cli::parse(["prog"])
+    set ok = true :bool mut
+    if !use! harness::check_i64("cli/parse/command-only-len", map::len(parsed), 1) { set ok = false }
+    if !use! harness::check_str("cli/parse/command", map::get::str(parsed, "command"), "prog") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn parse_success_flag_and_value: () :bool {
+    set parsed = cli::parse(["prog", "--name", "eve"])
+    set ok = true :bool mut
+    if !use! harness::check_str("cli/parse/name", map::get::str(parsed, "name"), "eve") { set ok = false }
+    if !use! harness::check_i64("cli/parse/flag-len", map::len(parsed), 2) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn parse_success_multiple_flags: () :bool {
+    set parsed = cli::parse(["prog", "--a", "1", "--b", "2"])
+    set ok = true :bool mut
+    if !use! harness::check_str("cli/parse/a", map::get::str(parsed, "a"), "1") { set ok = false }
+    if !use! harness::check_str("cli/parse/b", map::get::str(parsed, "b"), "2") { set ok = false }
+    if !use! harness::check_i64("cli/parse/multi-len", map::len(parsed), 3) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn parse_limit_positional_args_are_ignored: () :bool {
+    set parsed = cli::parse(["prog", "input.txt", "--x", "1"])
+    set ok = true :bool mut
+    if !use! harness::check_false("cli/parse/positional-dropped", map::has(parsed, "input.txt")) { set ok = false }
+    if !use! harness::check_str("cli/parse/x", map::get::str(parsed, "x"), "1") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn parse_limit_flag_value_may_look_like_a_flag: () :bool {
+    // The documented rule is positional: the next argument is the value, even
+    // when it starts with "--".
+    set parsed = cli::parse(["prog", "--a", "--b"])
+    set ok = true :bool mut
+    if !use! harness::check_str("cli/parse/value-is-flag", map::get::str(parsed, "a"), "--b") { set ok = false }
+    if !use! harness::check_false("cli/parse/b-not-a-flag", map::has(parsed, "b")) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn parse_anomaly_empty_argv: () :bool {
+    set argv = [] :vec[str] mut
+    set parsed = cli::parse(argv)
+    set ok = true :bool mut
+    if !use! harness::check_str("cli/parse/empty-command", map::get::str(parsed, "command"), "") { set ok = false }
+    if !use! harness::check_i64("cli/parse/empty-len", map::len(parsed), 1) { set ok = false }
+    use! harness::anomaly("cli/parse", "empty_argv", "[]", "command=\"\"", strings::from::i64(map::len(parsed)), map::len(parsed) == 1)
+    return ok
+}
+
+@[test]
+pub fn parse_anomaly_flag_without_value_should_be_1: () :bool {
+    set parsed = cli::parse(["prog", "--verbose"])
+    set ok = true :bool mut
+    if !use! harness::check("cli/parse/bare-flag-present", map::has(parsed, "verbose")) { set ok = false }
+    if !use! harness::check_str("cli/parse/bare-flag-value", map::get::str(parsed, "verbose"), "1") { set ok = false }
+    use! harness::anomaly("cli/parse", "bare_flag", "--verbose", "verbose=1", map::get::str(parsed, "verbose"), map::get::str(parsed, "verbose") == "1")
+    return ok
+}

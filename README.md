@@ -1,11 +1,11 @@
 # Kioto
 
 The standard library for [Mire](https://github.com/mire-lang/Avenys-rust):
-text, collections, filesystem, processes, networking, crypto, logging, time and
-mathematics — 244 public functions across 13 modules.
+text, filesystem, processes, networking, crypto, logging, time and
+mathematics — 333 public functions across 13 modules.
 
-> **3.1.0 is in development.** The 2.x `core/` tree is being replaced by
-> `modules/`, and the math surface is being rebuilt in Mire itself, with no
+> **3.1.0 is the current release.** The 2.x `core/` tree has been replaced by
+> `modules/`, and the math surface is rebuilt in Mire itself, with no
 > `rt_math_*` externs behind it. This package documents what has actually
 > landed; [the inventory](docs/inventory.md) records what has not.
 
@@ -52,7 +52,7 @@ anything computed becomes one first with `strings::from::*`.
 | --- | --- |
 | [Inventory](docs/inventory.md) | Every module, every public symbol, and the deliberate absences |
 | [Getting started](docs/examples/getting-started.md) | A program that compiles, with each construct explained |
-| [Symbol reference](docs/symbols/) | All 244 functions, one page per module, generated from the source comments |
+| [Symbol reference](docs/symbols/) | The documented surface, one page per module |
 | [Module guides](docs/README.md#module-guides) | One page per module: the model, and the mistakes worth avoiding |
 | [Examples](docs/README.md#examples) | Six complete programs: files, processes, crypto, text, numbers |
 | [Guides](docs/README.md#guides) | Errors, ownership, naming and security — the rules that cross module lines |

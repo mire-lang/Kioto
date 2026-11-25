@@ -1,0 +1,145 @@
+// Per-symbol suite: kioto::fs::path::{join,dir,name,ext}
+//
+// Paths are raw strings: there is no normalization pass. The documented
+// contract is asserted as written, including the four edges the current
+// runtime gets wrong: join("", x) yields "/x", dir("/abc") yields ".",
+// name("/abc") yields the whole path, and ext("..") yields ".". Those are
+// logged in the anomaly file instead of being treated as acceptable.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn join_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/join/simple", fs::path::join("a", "b"), "a/b") { set ok = false }
+    if !use! harness::check_str("path/join/trailing-slash", fs::path::join("a/", "b"), "a/b") { set ok = false }
+    if !use! harness::check_str("path/join/root", fs::path::join("/", "x"), "/x") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn join_limit_empty_second: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/join/empty-second", fs::path::join("a", ""), "a/") { set ok = false }
+    if !use! harness::check_str("path/join/double-existing", fs::path::join("a//", "b"), "a//b") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn join_anomaly_empty_first: () :bool {
+    // The first fragment contributes no characters, so the result must be the
+    // second fragment itself. The runtime prepends a separator regardless.
+    set got = fs::path::join("", "x")
+    set ok = true :bool mut
+    if !use! harness::check_str("path/join/empty-first", got, "x") { set ok = false }
+    use! harness::anomaly("fs/path", "join_empty_first", "|x", "x", got, got == "x")
+    return ok
+}
+
+@[test]
+pub fn join_documented_absolute_second: () :bool {
+    // "An absolute second part is appended, not honoured, so join never
+    // escapes the root on its own." The double separator is the intended
+    // shape, not an accident.
+    set ok = use! harness::check_str("path/join/absolute-second", fs::path::join("a", "/b"), "a//b")
+    return ok
+}
+
+@[test]
+pub fn dir_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/dir/nested", fs::path::dir("a/b/c"), "a/b") { set ok = false }
+    if !use! harness::check_str("path/dir/one-slash", fs::path::dir("a/b"), "a") { set ok = false }
+    if !use! harness::check_str("path/dir/trailing", fs::path::dir("a/b/"), "a/b") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn dir_limit_no_separator: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/dir/plain", fs::path::dir("abc"), ".") { set ok = false }
+    if !use! harness::check_str("path/dir/empty", fs::path::dir(""), ".") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn dir_anomaly_absolute_root: () :bool {
+    // A leading separator is a separator. The directory part of "/abc" is
+    // "/", and of "/" is "/", never ".".
+    set abc = fs::path::dir("/abc")
+    set root = fs::path::dir("/")
+    set ok = true :bool mut
+    if !use! harness::check_str("path/dir/absolute", abc, "/") { set ok = false }
+    if !use! harness::check_str("path/dir/root", root, "/") { set ok = false }
+    use! harness::anomaly("fs/path", "dir_absolute", "/abc", "/", abc, abc == "/")
+    use! harness::anomaly("fs/path", "dir_root", "/", "/", root, root == "/")
+    return ok
+}
+
+@[test]
+pub fn name_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/name/nested", fs::path::name("a/b/c"), "c") { set ok = false }
+    if !use! harness::check_str("path/name/one-slash", fs::path::name("a/b"), "b") { set ok = false }
+    if !use! harness::check_str("path/name/plain", fs::path::name("abc"), "abc") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn name_limit_trailing_separator: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/name/trailing", fs::path::name("a/b/"), "") { set ok = false }
+    if !use! harness::check_str("path/name/empty", fs::path::name(""), "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn name_anomaly_absolute_path: () :bool {
+    // "The last component of a path, separators not included." For "/abc"
+    // that is "abc"; for "/" there is no component at all.
+    set abc = fs::path::name("/abc")
+    set root = fs::path::name("/")
+    set ok = true :bool mut
+    if !use! harness::check_str("path/name/absolute", abc, "abc") { set ok = false }
+    if !use! harness::check_str("path/name/root", root, "") { set ok = false }
+    use! harness::anomaly("fs/path", "name_absolute", "/abc", "abc", abc, abc == "abc")
+    use! harness::anomaly("fs/path", "name_root", "/", "", root, root == "")
+    return ok
+}
+
+@[test]
+pub fn ext_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/ext/double", fs::path::ext("a.tar.gz"), ".gz") { set ok = false }
+    if !use! harness::check_str("path/ext/nested", fs::path::ext("a/b.c"), ".c") { set ok = false }
+    if !use! harness::check_str("path/ext/dot-file", fs::path::ext(".a.b"), ".b") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ext_limit_no_extension: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_str("path/ext/plain", fs::path::ext("file"), "") { set ok = false }
+    if !use! harness::check_str("path/ext/leading-dot", fs::path::ext(".gitignore"), "") { set ok = false }
+    if !use! harness::check_str("path/ext/dir-component", fs::path::ext("a.b/c"), "") { set ok = false }
+    if !use! harness::check_str("path/ext/empty", fs::path::ext(""), "") { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn ext_limit_trailing_dot: () :bool {
+    set ok = use! harness::check_str("path/ext/trailing-dot", fs::path::ext("a."), ".")
+    return ok
+}
+
+@[test]
+pub fn ext_anomaly_dotdot: () :bool {
+    // ".." is a relative directory component, not a file with the extension
+    // "."; a leading dot is not an extension.
+    set got = fs::path::ext("..")
+    set ok = true :bool mut
+    if !use! harness::check_str("path/ext/dotdot", got, "") { set ok = false }
+    use! harness::anomaly("fs/path", "ext_dotdot", "..", "", got, got == "")
+    return ok
+}

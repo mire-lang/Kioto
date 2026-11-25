@@ -1,0 +1,137 @@
+// Per-symbol suite: kioto::fs constants
+//
+// open_*, seek_*, reason_* and err_* are the numeric vocabulary shared with
+// the runtime. The tests pin the exact values because callers pass them to
+// extern-backed functions, and a silent renumbering would change behaviour
+// without changing a type.
+//
+// The open_* and seek_* helpers return i32; this compiler does not insert a
+// widening cast at an i64 call boundary, so the tests compare them in place
+// and hand the resulting bool to the harness instead of boxing them in
+// check_i64.
+
+load kioto
+load! /tests/_support/harness
+
+@[test]
+pub fn open_flags_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("fs/open/read", fs::open_read() == 1) { set ok = false }
+    if !use! harness::check("fs/open/write", fs::open_write() == 2) { set ok = false }
+    if !use! harness::check("fs/open/create", fs::open_create() == 4) { set ok = false }
+    if !use! harness::check("fs/open/truncate", fs::open_truncate() == 8) { set ok = false }
+    if !use! harness::check("fs/open/append", fs::open_append() == 16) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn seek_origins_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check("fs/seek/begin", fs::seek_begin() == 0) { set ok = false }
+    if !use! harness::check("fs/seek/current", fs::seek_current() == 1) { set ok = false }
+    if !use! harness::check("fs/seek/end", fs::seek_end() == 2) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn open_flags_limit_are_distinct: () :bool {
+    // The flags are one bit each of the same mask, so the exact values are
+    // 1, 2, 4, 8 and 16 and no two may collide. Bitwise operators on the i32
+    // return value currently fail in codegen, so this checks the values and
+    // pairwise inequality instead of masking.
+    set r = fs::open_read()
+    set w = fs::open_write()
+    set c = fs::open_create()
+    set t = fs::open_truncate()
+    set a = fs::open_append()
+    set ok = true :bool mut
+    if !use! harness::check("fs/open/read-value", r == 1) { set ok = false }
+    if !use! harness::check("fs/open/write-value", w == 2) { set ok = false }
+    if !use! harness::check("fs/open/create-value", c == 4) { set ok = false }
+    if !use! harness::check("fs/open/truncate-value", t == 8) { set ok = false }
+    if !use! harness::check("fs/open/append-value", a == 16) { set ok = false }
+    if !use! harness::check("fs/open/distinct-rw", r != w) { set ok = false }
+    if !use! harness::check("fs/open/distinct-rc", r != c) { set ok = false }
+    if !use! harness::check("fs/open/distinct-rt", r != t) { set ok = false }
+    if !use! harness::check("fs/open/distinct-ra", r != a) { set ok = false }
+    if !use! harness::check("fs/open/distinct-wc", w != c) { set ok = false }
+    if !use! harness::check("fs/open/distinct-wt", w != t) { set ok = false }
+    if !use! harness::check("fs/open/distinct-wa", w != a) { set ok = false }
+    if !use! harness::check("fs/open/distinct-ct", c != t) { set ok = false }
+    if !use! harness::check("fs/open/distinct-ca", c != a) { set ok = false }
+    if !use! harness::check("fs/open/distinct-ta", t != a) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn reason_codes_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("fs/reason/none", fs::reason_none(), 0) { set ok = false }
+    if !use! harness::check_i64("fs/reason/no-root", fs::reason_no_root(), 1) { set ok = false }
+    if !use! harness::check_i64("fs/reason/absolute", fs::reason_absolute(), 2) { set ok = false }
+    if !use! harness::check_i64("fs/reason/escape", fs::reason_escape(), 3) { set ok = false }
+    if !use! harness::check_i64("fs/reason/traversal", fs::reason_traversal(), 4) { set ok = false }
+    if !use! harness::check_i64("fs/reason/symlink", fs::reason_symlink(), 5) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn error_codes_success: () :bool {
+    set ok = true :bool mut
+    if !use! harness::check_i64("fs/err/ok", fs::err_ok(), 0) { set ok = false }
+    if !use! harness::check_i64("fs/err/not-found", fs::err_not_found(), 1) { set ok = false }
+    if !use! harness::check_i64("fs/err/permission", fs::err_permission(), 2) { set ok = false }
+    if !use! harness::check_i64("fs/err/io", fs::err_io(), 3) { set ok = false }
+    if !use! harness::check_i64("fs/err/invalid", fs::err_invalid(), 4) { set ok = false }
+    if !use! harness::check_i64("fs/err/no-mem", fs::err_no_mem(), 5) { set ok = false }
+    if !use! harness::check_i64("fs/err/busy", fs::err_busy(), 6) { set ok = false }
+    if !use! harness::check_i64("fs/err/unsupported", fs::err_unsupported(), 7) { set ok = false }
+    if !use! harness::check_i64("fs/err/already-exists", fs::err_already_exists(), 8) { set ok = false }
+    if !use! harness::check_i64("fs/err/invalid-handle", fs::err_invalid_handle(), 9) { set ok = false }
+    if !use! harness::check_i64("fs/err/ownership", fs::err_ownership(), 10) { set ok = false }
+    if !use! harness::check_i64("fs/err/not-empty", fs::err_not_empty(), 11) { set ok = false }
+    return ok
+}
+
+@[test]
+pub fn reason_codes_anomaly_contiguous: () :bool {
+    // The sandbox compares reason codes by value across the PAL boundary, so a
+    // hole in the range is a bug even though every constant still matches its
+    // own expected value.
+    set contiguous = true :bool mut
+    if fs::reason_none() != 0 { set contiguous = false }
+    if fs::reason_no_root() != 1 { set contiguous = false }
+    if fs::reason_absolute() != 2 { set contiguous = false }
+    if fs::reason_escape() != 3 { set contiguous = false }
+    if fs::reason_traversal() != 4 { set contiguous = false }
+    if fs::reason_symlink() != 5 { set contiguous = false }
+    use! harness::anomaly("fs/constants", "reason_codes_contiguous", "0..5", "contiguous from 0", "checked all six values", contiguous)
+    return contiguous
+}
+
+@[test]
+pub fn error_codes_limit_last_is_not_empty: () :bool {
+    // err_not_empty is the highest code. The runtime only ever returns codes
+    // in 0..11; a new code beyond this range must be added here on purpose.
+    set ok = use! harness::check("fs/err/last-code", fs::err_not_empty() == 11)
+    return ok
+}
+
+@[test]
+pub fn error_codes_anomaly_contiguous: () :bool {
+    set contiguous = true :bool mut
+    if fs::err_ok() != 0 { set contiguous = false }
+    if fs::err_not_found() != 1 { set contiguous = false }
+    if fs::err_permission() != 2 { set contiguous = false }
+    if fs::err_io() != 3 { set contiguous = false }
+    if fs::err_invalid() != 4 { set contiguous = false }
+    if fs::err_no_mem() != 5 { set contiguous = false }
+    if fs::err_busy() != 6 { set contiguous = false }
+    if fs::err_unsupported() != 7 { set contiguous = false }
+    if fs::err_already_exists() != 8 { set contiguous = false }
+    if fs::err_invalid_handle() != 9 { set contiguous = false }
+    if fs::err_ownership() != 10 { set contiguous = false }
+    if fs::err_not_empty() != 11 { set contiguous = false }
+    use! harness::anomaly("fs/constants", "error_codes_contiguous", "0..11", "contiguous from 0", "checked all twelve values", contiguous)
+    return contiguous
+}
